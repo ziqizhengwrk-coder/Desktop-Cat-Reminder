@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Move Reminder</title>
+    <link rel="stylesheet" href="./overlay.css" />
+  </head>
+  <body>
+    <main class="overlay">
+      <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="title">
+        <img class="pixel-cat" src="./assets/cat-transparent.png" alt="" draggable="false" />
+        <p id="label" class="label">Move Reminder</p>
+        <h1 id="title">Time to move</h1>
+        <p id="message" class="message">Stand up and move for a minute.</p>
+        <div class="actions">
+          <button id="done" class="primary">Done</button>
+          <button id="snooze" class="secondary">10 min later</button>
+        </div>
+        <button id="close" class="close" aria-label="Close reminder">x</button>
+      </section>
+    </main>
+    <script src="./overlay.js"></script>
+  </body>
+</html>

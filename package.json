@@ -1,0 +1,27 @@
+{
+  "name": "desktop-cat-reminder",
+  "version": "0.1.0",
+  "description": "A tiny desktop cat that nudges you to move before sitting too long.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "demo": "electron . --demo",
+    "check": "node --check main.js && node --check preload.js && node --check src/pet.js && node --check src/overlay.js && node --check src/status.js"
+  },
+  "keywords": [
+    "electron",
+    "reminder",
+    "desktop-pet",
+    "wellness"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
+  }
+}

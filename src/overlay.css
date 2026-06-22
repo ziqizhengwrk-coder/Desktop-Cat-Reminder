@@ -1,0 +1,153 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  font-family:
+    Inter, "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #211b16;
+  background: transparent;
+}
+
+.overlay {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 28px;
+  background: rgba(25, 22, 18, 0.36);
+  backdrop-filter: blur(3px);
+}
+
+.dialog {
+  position: relative;
+  width: min(440px, calc(100vw - 40px));
+  padding: 48px 34px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.74);
+  border-radius: 8px;
+  background: #fff8ed;
+  box-shadow: 0 24px 80px rgba(20, 16, 12, 0.34);
+  text-align: center;
+  animation: enter 260ms ease-out both;
+}
+
+.pixel-cat {
+  position: relative;
+  display: block;
+  width: 96px;
+  height: 96px;
+  margin: -106px auto 8px;
+  image-rendering: pixelated;
+  transform-origin: 50% 84%;
+  filter: drop-shadow(0 9px 0 rgba(38, 29, 22, 0.12));
+  animation: hop 0.78s steps(2, end) infinite;
+}
+
+.label {
+  margin: 4px 0 8px;
+  color: #7b4f36;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.message {
+  min-height: 54px;
+  margin: 16px 0 26px;
+  color: #4d4138;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+button {
+  height: 46px;
+  border: 0;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary {
+  color: #ffffff;
+  background: #1c6c5b;
+}
+
+.primary:hover {
+  background: #155645;
+}
+
+.secondary {
+  color: #2d261f;
+  background: #f1dfc4;
+}
+
+.secondary:hover {
+  background: #e7d0ad;
+}
+
+.close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  color: #6b5a4c;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-18px);
+  }
+}
+
+@media (max-width: 460px) {
+  .dialog {
+    padding: 44px 22px 22px;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+}

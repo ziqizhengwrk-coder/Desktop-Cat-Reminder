@@ -1,0 +1,15 @@
+node_modules/
+.pnpm-store/
+dist/
+release/
+out/
+
+*.log
+electron-out.log
+electron-err.log
+
+*.tmp
+*.bak
+
+Thumbs.db
+Desktop.ini
