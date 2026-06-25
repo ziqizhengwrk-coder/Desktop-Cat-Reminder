@@ -24,6 +24,11 @@ body {
   touch-action: none;
 }
 
+.cat:focus,
+.cat:focus-visible {
+  outline: none;
+}
+
 .cat:active {
   cursor: grabbing;
 }
