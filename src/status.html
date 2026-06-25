@@ -11,55 +11,47 @@
       <header>
         <div>
           <p class="eyebrow">Desktop Cat Reminder</p>
-          <h1>Move Rhythm</h1>
         </div>
-        <span id="mode" class="mode">Running</span>
       </header>
-
-      <nav class="tabs" aria-label="Status pages">
-        <button class="tab active" type="button" data-tab="overview">Overview</button>
-        <button id="calendarTab" class="tab hidden" type="button" data-tab="calendar">Calendar</button>
-        <button class="tab" type="button" data-tab="settings">Settings</button>
-      </nav>
 
       <section id="overviewPage" class="tab-page active">
         <section class="timeline" aria-label="Next reminders">
           <article>
             <div>
-              <h2>Stretch break</h2>
-              <p>Near-desk stretch, neck and shoulder movement</p>
+              <h2 data-i18n="overview.stretchTitle">拉伸活动</h2>
+              <p data-i18n="overview.stretchText">在工位附近活动颈肩、手臂和身体</p>
             </div>
             <strong id="stretchNext">--:--</strong>
           </article>
           <article>
             <div>
-              <h2>Outdoor walk</h2>
-              <p>Scheduled at <span id="walkTimes">11:30 / 17:30</span></p>
+              <h2 data-i18n="overview.walkTitle">户外走路</h2>
+              <p><span data-i18n="overview.walkScheduled">计划时间</span> <span id="walkTimes">11:30 / 17:30</span></p>
             </div>
             <strong id="walkNext">--:--</strong>
           </article>
         </section>
 
         <footer>
-          <button id="resetPosition" type="button">Reset cat position</button>
-          <p id="updated">Last updated --:--</p>
+          <button id="resetPosition" type="button" data-i18n="overview.resetCat">重置小猫位置</button>
+          <p id="updated">--</p>
         </footer>
       </section>
 
       <section id="calendarPage" class="tab-page">
         <section class="calendar" aria-label="Completion calendar">
           <div class="section-title">
-            <h2 id="calendarTitle">Calendar</h2>
+            <h2 id="calendarTitle">日历</h2>
             <span id="todayProgress">0/2</span>
           </div>
           <div class="weekdays" aria-hidden="true">
-            <span>Mon</span>
-            <span>Tue</span>
-            <span>Wed</span>
-            <span>Thu</span>
-            <span>Fri</span>
-            <span>Sat</span>
-            <span>Sun</span>
+            <span data-i18n="weekdays.mon">一</span>
+            <span data-i18n="weekdays.tue">二</span>
+            <span data-i18n="weekdays.wed">三</span>
+            <span data-i18n="weekdays.thu">四</span>
+            <span data-i18n="weekdays.fri">五</span>
+            <span data-i18n="weekdays.sat">六</span>
+            <span data-i18n="weekdays.sun">日</span>
           </div>
           <div id="calendarGrid" class="calendar-grid"></div>
         </section>
@@ -67,57 +59,142 @@
 
       <section id="settingsPage" class="tab-page">
         <form id="settingsForm" class="settings">
-          <div class="section-title">
-            <h2>Settings</h2>
-            <span id="saveStatus">Saved</span>
+          <div id="settingsRoot" class="settings-view active">
+            <div class="section-title">
+              <h2 data-i18n="settings.title">设置</h2>
+              <span id="saveStatus" data-i18n="settings.saved">已保存</span>
+            </div>
+
+            <div class="settings-menu" aria-label="Settings categories">
+              <button class="settings-menu-item" type="button" data-settings-target="interval">
+                <span>
+                  <strong data-i18n="settings.interval">时间间隔</strong>
+                  <small data-i18n="settings.intervalDesc">拉伸间隔、稍后提醒、走路次数和时间</small>
+                </span>
+                <i aria-hidden="true">&rsaquo;</i>
+              </button>
+              <button class="settings-menu-item" type="button" data-settings-target="lunch">
+                <span>
+                  <strong data-i18n="settings.lunch">午休</strong>
+                  <small data-i18n="settings.lunchDesc">设置不打扰的午休时间段</small>
+                </span>
+                <i aria-hidden="true">&rsaquo;</i>
+              </button>
+              <button class="settings-menu-item" type="button" data-settings-target="calendar">
+                <span>
+                  <strong data-i18n="settings.calendar">日历</strong>
+                  <small data-i18n="settings.calendarDesc">控制是否显示日历页面</small>
+                </span>
+                <i aria-hidden="true">&rsaquo;</i>
+              </button>
+              <button class="settings-menu-item" type="button" data-settings-target="language">
+                <span>
+                  <strong data-i18n="settings.language">语言</strong>
+                  <small data-i18n="settings.languageDesc">切换中文或英文界面</small>
+                </span>
+                <i aria-hidden="true">&rsaquo;</i>
+              </button>
+            </div>
           </div>
 
-          <label>
-            <span>Stretch interval</span>
-            <input id="stretchInterval" type="number" min="5" max="240" step="1" />
-            <small>minutes</small>
-          </label>
+          <section id="settingsInterval" class="settings-view settings-subpage">
+            <div class="settings-subheader">
+              <button class="back-button" type="button" data-settings-back aria-label="Back">&larr;</button>
+              <h2 data-i18n="settings.interval">时间间隔</h2>
+            </div>
 
-          <label>
-            <span>Snooze time</span>
-            <input id="snoozeMinutes" type="number" min="1" max="60" step="1" />
-            <small>minutes</small>
-          </label>
-
-          <label>
-            <span>Outdoor walk count</span>
-            <input id="walkCount" type="number" min="1" max="6" step="1" />
-            <small>times/day</small>
-          </label>
-
-          <div id="walkTimeFields" class="time-grid"></div>
-
-          <label class="toggle-row">
-            <span>Lunch quiet time</span>
-            <input id="lunchEnabled" type="checkbox" />
-            <small>enabled</small>
-          </label>
-
-          <div class="time-grid">
             <label>
-              <span>Lunch start</span>
-              <input id="lunchStart" type="time" />
+              <span data-i18n="fields.stretchInterval">拉伸间隔</span>
+              <input id="stretchInterval" type="number" min="5" max="240" step="1" />
+              <small data-i18n="units.minutes">分钟</small>
             </label>
+
             <label>
-              <span>Lunch end</span>
-              <input id="lunchEnd" type="time" />
+              <span data-i18n="fields.snoozeTime">稍后提醒</span>
+              <input id="snoozeMinutes" type="number" min="1" max="60" step="1" />
+              <small data-i18n="units.minutes">分钟</small>
             </label>
-          </div>
 
-          <label class="toggle-row">
-            <span>Calendar tab</span>
-            <input id="calendarEnabled" type="checkbox" />
-            <small>enabled</small>
-          </label>
+            <label>
+              <span data-i18n="fields.walkCount">每日走路次数</span>
+              <input id="walkCount" type="number" min="1" max="6" step="1" />
+              <small data-i18n="units.timesPerDay">次/天</small>
+            </label>
 
-          <button type="submit">Save settings</button>
+            <div id="walkTimeFields" class="time-grid"></div>
+            <button type="submit" data-i18n="settings.save">保存设置</button>
+          </section>
+
+          <section id="settingsLunch" class="settings-view settings-subpage">
+            <div class="settings-subheader">
+              <button class="back-button" type="button" data-settings-back aria-label="Back">&larr;</button>
+              <h2 data-i18n="settings.lunch">午休</h2>
+            </div>
+
+            <label class="toggle-row">
+              <span data-i18n="fields.lunchQuiet">午休静默时间</span>
+              <input id="lunchEnabled" type="checkbox" />
+            </label>
+
+            <div class="time-grid">
+              <label>
+                <span data-i18n="fields.lunchStart">午休开始</span>
+                <input id="lunchStart" type="time" />
+              </label>
+              <label>
+                <span data-i18n="fields.lunchEnd">午休结束</span>
+                <input id="lunchEnd" type="time" />
+              </label>
+            </div>
+            <button type="submit" data-i18n="settings.save">保存设置</button>
+          </section>
+
+          <section id="settingsCalendar" class="settings-view settings-subpage">
+            <div class="settings-subheader">
+              <button class="back-button" type="button" data-settings-back aria-label="Back">&larr;</button>
+              <h2 data-i18n="settings.calendar">日历</h2>
+            </div>
+
+            <label class="toggle-row">
+              <span data-i18n="fields.calendarTab">显示日历页面</span>
+              <input id="calendarEnabled" type="checkbox" />
+            </label>
+            <button type="submit" data-i18n="settings.save">保存设置</button>
+          </section>
+
+          <section id="settingsLanguage" class="settings-view settings-subpage">
+            <div class="settings-subheader">
+              <button class="back-button" type="button" data-settings-back aria-label="Back">&larr;</button>
+              <h2 data-i18n="settings.language">语言</h2>
+            </div>
+
+            <label class="wide-row">
+              <span data-i18n="fields.language">界面语言</span>
+              <select id="languageSelect">
+                <option value="zh-CN">中文</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <button type="submit" data-i18n="settings.save">保存设置</button>
+          </section>
         </form>
+        <footer class="version-footer" aria-label="Version and updates">
+          <div class="version-copy">
+            <span id="appVersion">v--</span>
+            <span id="updateStatus" data-i18n="updates.manual">手动检查更新</span>
+          </div>
+          <div class="version-links">
+            <button id="checkUpdates" type="button" data-i18n="updates.check">检查更新</button>
+            <button id="openUpdate" class="link-button hidden" type="button" data-i18n="updates.download">下载</button>
+          </div>
+        </footer>
       </section>
+
+      <nav class="tabs" aria-label="Status pages">
+        <button class="tab active" type="button" data-tab="overview" data-i18n="tabs.overview">概览</button>
+        <button id="calendarTab" class="tab hidden" type="button" data-tab="calendar" data-i18n="tabs.calendar">日历</button>
+        <button class="tab" type="button" data-tab="settings" data-i18n="tabs.settings">设置</button>
+      </nav>
     </main>
     <script src="./status.js"></script>
   </body>

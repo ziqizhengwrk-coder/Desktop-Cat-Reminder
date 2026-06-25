@@ -7,16 +7,32 @@ const done = document.getElementById('done');
 const snooze = document.getElementById('snooze');
 const close = document.getElementById('close');
 
-const titles = {
-  stretch: 'Stretch break',
-  walk: 'Walk outside',
+const overlayText = {
+  'zh-CN': {
+    done: '完成',
+    snooze: '{minutes} 分钟后提醒',
+    close: '关闭提醒',
+  },
+  en: {
+    done: 'Done',
+    snooze: '{minutes} min later',
+    close: 'Close reminder',
+  },
 };
 
+function text(language, key, values = {}) {
+  const template = overlayText[language]?.[key] || overlayText.en[key] || key;
+  return template.replace(/\{(\w+)\}/g, (_match, name) => values[name] ?? '');
+}
+
 window.catReminder.onReminderData((data) => {
+  const language = data.language || 'zh-CN';
   label.textContent = data.label;
-  title.textContent = titles[data.id] || 'Time to move';
+  title.textContent = data.title;
   message.textContent = data.message;
-  snooze.textContent = `${data.snoozeMinutes} later`;
+  done.textContent = text(language, 'done');
+  snooze.textContent = text(language, 'snooze', { minutes: String(data.snoozeMinutes) });
+  close.setAttribute('aria-label', text(language, 'close'));
 });
 
 done.addEventListener('click', () => {

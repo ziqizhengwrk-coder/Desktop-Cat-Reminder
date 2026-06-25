@@ -5,6 +5,32 @@ const quitApp = document.getElementById('quitApp');
 let clickTimer = null;
 let drag = null;
 let suppressClickUntil = 0;
+let suppressMenuUntil = 0;
+
+const petText = {
+  'zh-CN': {
+    open: '打开提醒状态',
+    quit: '退出',
+  },
+  en: {
+    open: 'Open reminder status',
+    quit: 'Quit',
+  },
+};
+
+function applyLanguage(language = 'zh-CN') {
+  const text = petText[language] || petText.en;
+  cat.setAttribute('aria-label', text.open);
+  quitApp.textContent = text.quit;
+}
+
+function isPetMenuOpen() {
+  return !petMenu.classList.contains('hidden');
+}
+
+function hidePetMenu() {
+  petMenu.classList.add('hidden');
+}
 
 cat.addEventListener('dblclick', () => {
   clearTimeout(clickTimer);
@@ -30,16 +56,48 @@ cat.addEventListener('click', () => {
 
 cat.addEventListener('contextmenu', (event) => {
   event.preventDefault();
-  petMenu.classList.remove('hidden');
+  if (Date.now() <= suppressMenuUntil) return;
+  if (isPetMenuOpen()) {
+    hidePetMenu();
+  } else {
+    petMenu.classList.remove('hidden');
+  }
 });
 
 quitApp.addEventListener('click', () => {
   window.catReminder.quitApp();
 });
 
+document.addEventListener(
+  'pointerdown',
+  (event) => {
+    if (!isPetMenuOpen() || event.target === quitApp) return;
+    hidePetMenu();
+    suppressClickUntil = Date.now() + 260;
+    if (event.button === 2) {
+      suppressMenuUntil = Date.now() + 260;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  },
+  true,
+);
+
+document.addEventListener(
+  'contextmenu',
+  (event) => {
+    if (!isPetMenuOpen() || event.target === quitApp) return;
+    hidePetMenu();
+    suppressClickUntil = Date.now() + 260;
+    event.preventDefault();
+    event.stopPropagation();
+  },
+  true,
+);
+
 document.addEventListener('pointerdown', (event) => {
   if (!petMenu.contains(event.target) && !cat.contains(event.target)) {
-    petMenu.classList.add('hidden');
+    hidePetMenu();
   }
 });
 
@@ -83,4 +141,12 @@ window.catReminder.onPetAlert(() => {
 
 window.catReminder.onPetCalm(() => {
   cat.classList.remove('alert');
+});
+
+window.catReminder.getState().then((state) => {
+  applyLanguage(state.settings?.language);
+});
+
+window.catReminder.onState((state) => {
+  applyLanguage(state.settings?.language);
 });

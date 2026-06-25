@@ -3,21 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Move Reminder</title>
+    <title>Desktop Cat Reminder</title>
     <link rel="stylesheet" href="./overlay.css" />
   </head>
   <body>
     <main class="overlay">
       <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="title">
         <img class="pixel-cat" src="./assets/cat-transparent.png" alt="" draggable="false" />
-        <p id="label" class="label">Move Reminder</p>
-        <h1 id="title">Time to move</h1>
-        <p id="message" class="message">Stand up and move for a minute.</p>
+        <p id="label" class="label">活动提醒</p>
+        <h1 id="title">该活动一下啦</h1>
+        <p id="message" class="message">站起来活动一会儿。</p>
         <div class="actions">
-          <button id="done" class="primary">Done</button>
-          <button id="snooze" class="secondary">10 min later</button>
+          <button id="done" class="primary">完成</button>
+          <button id="snooze" class="secondary">稍后提醒</button>
         </div>
-        <button id="close" class="close" aria-label="Close reminder">x</button>
+        <button id="close" class="close" aria-label="关闭提醒">x</button>
       </section>
     </main>
     <script src="./overlay.js"></script>

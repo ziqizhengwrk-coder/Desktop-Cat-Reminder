@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('catReminder', {
   getState: () => ipcRenderer.invoke('state:get'),
   openStatus: () => ipcRenderer.send('pet:open-status'),
   quitApp: () => ipcRenderer.send('app:quit'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  openExternal: (url) => ipcRenderer.send('external:open', url),
   dragPet: (deltaX, deltaY) => ipcRenderer.send('pet:drag-move', deltaX, deltaY),
   updateSettings: (settings) => ipcRenderer.send('settings:update', settings),
   done: (reminderId) => ipcRenderer.send('reminder:done', reminderId),

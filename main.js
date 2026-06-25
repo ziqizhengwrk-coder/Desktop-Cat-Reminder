@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,13 +8,36 @@ const shouldOpenWindowOnStart = process.argv.includes('--open-window');
 const REMINDER_META = {
   stretch: {
     id: 'stretch',
-    label: 'Stretch break',
-    message: 'Time for a small stretch near your desk.',
   },
   walk: {
     id: 'walk',
-    label: 'Outdoor walk',
-    message: 'Go outside for a short walk.',
+  },
+};
+
+const REMINDER_COPY = {
+  'zh-CN': {
+    stretch: {
+      label: '拉伸活动',
+      title: '该活动一下啦',
+      message: '在工位附近做一点颈肩拉伸和轻微活动。',
+    },
+    walk: {
+      label: '户外走路',
+      title: '出去走一走',
+      message: '离开座位，到外面走 10 分钟。',
+    },
+  },
+  en: {
+    stretch: {
+      label: 'Stretch break',
+      title: 'Time to stretch',
+      message: 'Time for a small stretch near your desk.',
+    },
+    walk: {
+      label: 'Outdoor walk',
+      title: 'Walk outside',
+      message: 'Go outside for a short walk.',
+    },
   },
 };
 
@@ -27,6 +50,7 @@ const DEFAULT_SETTINGS = {
   lunchStart: '12:00',
   lunchEnd: '13:30',
   calendarEnabled: false,
+  language: 'zh-CN',
 };
 
 const TICK_MS = 1000;
@@ -41,6 +65,10 @@ const PET_VISIBLE = {
   bottom: 104,
 };
 const APP_ICON = path.join(__dirname, 'src', 'assets', 'cat-icon.ico');
+const UPDATE_RELEASES_API =
+  'https://api.github.com/repos/ziqizhengwrk-coder/Desktop-Cat-Reminder/releases/latest';
+const UPDATE_RELEASES_PAGE =
+  'https://github.com/ziqizhengwrk-coder/Desktop-Cat-Reminder/releases/latest';
 
 let petWindow;
 let statusWindow;
@@ -131,6 +159,7 @@ function normalizeWalkTimes(times, count = DEFAULT_SETTINGS.walkCount) {
 
 function normalizeSettings(settings) {
   const walkCount = Math.round(clampNumber(settings.walkCount, 1, 6, DEFAULT_SETTINGS.walkCount));
+  const language = ['zh-CN', 'en'].includes(settings.language) ? settings.language : DEFAULT_SETTINGS.language;
   return {
     stretchIntervalMinutes: clampNumber(settings.stretchIntervalMinutes, isDemo ? 0.1 : 5, 240, 45),
     snoozeMinutes: clampNumber(settings.snoozeMinutes, 1, 60, 10),
@@ -140,7 +169,12 @@ function normalizeSettings(settings) {
     lunchStart: isValidTime(settings.lunchStart) ? settings.lunchStart : DEFAULT_SETTINGS.lunchStart,
     lunchEnd: isValidTime(settings.lunchEnd) ? settings.lunchEnd : DEFAULT_SETTINGS.lunchEnd,
     calendarEnabled: settings.calendarEnabled === true,
+    language,
   };
+}
+
+function reminderCopy(reminderId, language = state?.settings?.language || DEFAULT_SETTINGS.language) {
+  return REMINDER_COPY[language]?.[reminderId] || REMINDER_COPY.en[reminderId];
 }
 
 function loadState() {
@@ -234,6 +268,67 @@ function normalizeCalendar(calendar) {
 function saveState() {
   fs.mkdirSync(path.dirname(storePath), { recursive: true });
   fs.writeFileSync(storePath, JSON.stringify(state, null, 2));
+}
+
+function parseVersion(version) {
+  return String(version || '0.0.0')
+    .replace(/^v/i, '')
+    .split(/[.-]/)
+    .map((part) => Number.parseInt(part, 10) || 0);
+}
+
+function compareVersions(left, right) {
+  const leftParts = parseVersion(left);
+  const rightParts = parseVersion(right);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (leftParts[index] || 0) - (rightParts[index] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
+async function checkForUpdates() {
+  const currentVersion = app.getVersion();
+  try {
+    const response = await fetch(UPDATE_RELEASES_API, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'Desktop-Cat-Reminder',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`GitHub returned ${response.status}`);
+    }
+
+    const release = await response.json();
+    const latestVersion = String(release.tag_name || release.name || '').replace(/^v/i, '');
+    const downloadAsset = (release.assets || []).find((asset) => {
+      return /\.exe$/i.test(asset.name || '');
+    });
+    const releaseUrl = release.html_url || UPDATE_RELEASES_PAGE;
+    const downloadUrl = downloadAsset?.browser_download_url || releaseUrl;
+
+    return {
+      ok: true,
+      currentVersion,
+      latestVersion,
+      hasUpdate: compareVersions(latestVersion, currentVersion) > 0,
+      releaseName: release.name || `v${latestVersion}`,
+      releaseUrl,
+      downloadUrl,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      currentVersion,
+      latestVersion: null,
+      hasUpdate: false,
+      message: 'Could not check updates. Please try again later.',
+      detail: error.message,
+    };
+  }
 }
 
 function resetDailyIfNeeded() {
@@ -429,9 +524,9 @@ function createStatusWindow() {
 
   statusWindow = new BrowserWindow({
     width: 500,
-    height: 760,
+    height: 600,
     minWidth: 420,
-    minHeight: 640,
+    minHeight: 520,
     title: 'Desktop Cat Reminder',
     icon: APP_ICON,
     backgroundColor: '#f7f3ea',
@@ -460,6 +555,7 @@ function createOverlayWindow(reminderId) {
   }
 
   const reminder = REMINDER_META[reminderId];
+  const copy = reminderCopy(reminderId);
   overlayWindow = new BrowserWindow({
     fullscreen: true,
     icon: APP_ICON,
@@ -486,9 +582,11 @@ function createOverlayWindow(reminderId) {
     overlayWindow.focus();
     overlayWindow.webContents.send('reminder:data', {
       id: reminder.id,
-      label: reminder.label,
-      message: reminder.message,
-      snoozeMinutes: `${state.settings.snoozeMinutes} min`,
+      language: state.settings.language,
+      label: copy.label,
+      title: copy.title,
+      message: copy.message,
+      snoozeMinutes: state.settings.snoozeMinutes,
     });
   });
   overlayWindow.on('closed', () => {
@@ -631,14 +729,16 @@ function calendarForPublicState() {
 }
 
 function publicState() {
+  const language = state.settings.language;
   return {
     isDemo,
+    appVersion: app.getVersion(),
     now: Date.now(),
     reminders: {
-      stretch: { ...state.reminders.stretch, label: REMINDER_META.stretch.label },
+      stretch: { ...state.reminders.stretch, label: reminderCopy('stretch', language).label },
       walk: {
         ...state.reminders.walk,
-        label: REMINDER_META.walk.label,
+        label: reminderCopy('walk', language).label,
         configuredTimes: state.settings.walkTimes,
       },
     },
@@ -658,8 +758,14 @@ function pushState() {
 }
 
 ipcMain.handle('state:get', () => publicState());
+ipcMain.handle('update:check', () => checkForUpdates());
 ipcMain.on('pet:open-status', createStatusWindow);
 ipcMain.on('app:quit', quitApp);
+ipcMain.on('external:open', (_event, url) => {
+  if (/^https:\/\/github\.com\/ziqizhengwrk-coder\/Desktop-Cat-Reminder\/releases/i.test(String(url))) {
+    shell.openExternal(url);
+  }
+});
 ipcMain.on('pet:drag-move', (_event, deltaX, deltaY) => movePetBy(deltaX, deltaY));
 ipcMain.on('reminder:done', (_event, reminderId) => completeReminder(reminderId));
 ipcMain.on('reminder:snooze', (_event, reminderId) => snoozeReminder(reminderId));
@@ -684,6 +790,7 @@ app.whenReady().then(() => {
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.desktop-cat-reminder.app');
   }
+  Menu.setApplicationMenu(null);
   loadState();
   createPetWindow();
   if (shouldOpenWindowOnStart) {
