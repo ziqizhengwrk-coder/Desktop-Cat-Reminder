@@ -18,24 +18,24 @@ const REMINDER_COPY = {
   'zh-CN': {
     stretch: {
       label: '拉伸活动',
-      title: '该活动一下啦',
+      title: '拉伸一下吧！',
       message: '在工位附近做一点颈肩拉伸和轻微活动。',
     },
     walk: {
       label: '户外走路',
-      title: '出去走一走',
+      title: '出去走走吧！',
       message: '离开座位，到外面走 10 分钟。',
     },
   },
   en: {
     stretch: {
       label: 'Stretch break',
-      title: 'Time to stretch',
+      title: 'Stretch a little!',
       message: 'Time for a small stretch near your desk.',
     },
     walk: {
       label: 'Outdoor walk',
-      title: 'Walk outside',
+      title: 'Go for a walk!',
       message: 'Go outside for a short walk.',
     },
   },
