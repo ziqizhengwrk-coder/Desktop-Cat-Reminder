@@ -16,6 +16,31 @@ A lightweight Electron desktop pet that nudges you to move at a calmer rhythm.
 - Fullscreen always-on-top reminder overlay with Done and later actions.
 - Calendar tracking: a day lights up after at least one stretch and one walk are completed.
 
+## Requirements
+
+- Node.js 22 or later is recommended.
+- The project uses pnpm for dependency management. On macOS, the startup script can run pnpm through `npx` if pnpm is not installed globally.
+
+## Run On macOS
+
+Install Node.js first if this Mac has not run Node/Electron apps before:
+
+https://nodejs.org/en/download
+
+Then double-click:
+
+```text
+Start Desktop Cat Reminder.command
+```
+
+The first launch may take a while because it installs dependencies and downloads Electron. If macOS blocks the command file, run:
+
+```bash
+chmod +x "Start Desktop Cat Reminder.command"
+```
+
+See `MAC_START_GUIDE.md` for a beginner-friendly walkthrough.
+
 ## Run On Windows
 
 ```powershell
