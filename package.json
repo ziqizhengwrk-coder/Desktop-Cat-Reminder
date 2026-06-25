@@ -1,12 +1,13 @@
 {
   "name": "desktop-cat-reminder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A tiny desktop cat that nudges you to move before sitting too long.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "demo": "electron . --demo",
-    "check": "node --check main.js && node --check preload.js && node --check src/pet.js && node --check src/overlay.js && node --check src/status.js"
+    "check": "node --check main.js && node --check preload.js && node --check src/pet.js && node --check src/overlay.js && node --check src/status.js",
+    "dist": "electron-builder --win nsis"
   },
   "keywords": [
     "electron",
@@ -17,11 +18,32 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^26.15.3"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "electron"
-    ]
+  "build": {
+    "appId": "com.desktopcat.reminder",
+    "productName": "Desktop Cat Reminder",
+    "beforeBuild": "build/before-build.js",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "src/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/cat-icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Desktop Cat Reminder"
+    }
   }
 }

@@ -1,4 +1,6 @@
 const cat = document.getElementById('cat');
+const petMenu = document.getElementById('petMenu');
+const quitApp = document.getElementById('quitApp');
 
 let clickTimer = null;
 let drag = null;
@@ -24,6 +26,21 @@ cat.addEventListener('click', () => {
       { duration: 260, easing: 'steps(2, end)' },
     );
   }, 180);
+});
+
+cat.addEventListener('contextmenu', (event) => {
+  event.preventDefault();
+  petMenu.classList.remove('hidden');
+});
+
+quitApp.addEventListener('click', () => {
+  window.catReminder.quitApp();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (!petMenu.contains(event.target) && !cat.contains(event.target)) {
+    petMenu.classList.add('hidden');
+  }
 });
 
 cat.addEventListener('pointerdown', (event) => {

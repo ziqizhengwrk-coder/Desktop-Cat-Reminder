@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('catReminder', {
   getState: () => ipcRenderer.invoke('state:get'),
   openStatus: () => ipcRenderer.send('pet:open-status'),
+  quitApp: () => ipcRenderer.send('app:quit'),
   dragPet: (deltaX, deltaY) => ipcRenderer.send('pet:drag-move', deltaX, deltaY),
   updateSettings: (settings) => ipcRenderer.send('settings:update', settings),
   done: (reminderId) => ipcRenderer.send('reminder:done', reminderId),

@@ -3,33 +3,35 @@ const path = require('path');
 const fs = require('fs');
 
 const isDemo = process.argv.includes('--demo');
+const shouldOpenWindowOnStart = process.argv.includes('--open-window');
 
 const REMINDER_META = {
-  light: {
-    id: 'light',
-    label: 'Light activity',
-    message: 'Time to move. Stand up for 1-3 minutes.',
-  },
-  big: {
-    id: 'big',
-    label: 'Big activity',
-    message: 'Step away from your seat for 5-10 minutes.',
+  stretch: {
+    id: 'stretch',
+    label: 'Stretch break',
+    message: 'Time for a small stretch near your desk.',
   },
   walk: {
     id: 'walk',
-    label: 'Daily walk',
-    message: 'Go outside for a 10 minute walk.',
+    label: 'Outdoor walk',
+    message: 'Go outside for a short walk.',
   },
 };
 
 const DEFAULT_SETTINGS = {
-  lightIntervalMinutes: isDemo ? 0.5 : 30,
-  bigIntervalMinutes: isDemo ? 1 : 60,
+  stretchIntervalMinutes: isDemo ? 0.5 : 45,
   snoozeMinutes: isDemo ? 0.25 : 10,
+  walkCount: 2,
   walkTimes: ['11:30', '17:30'],
+  lunchEnabled: true,
+  lunchStart: '12:00',
+  lunchEnd: '13:30',
+  calendarEnabled: false,
 };
 
 const TICK_MS = 1000;
+const STALE_DUE_MS = isDemo ? 20 * 1000 : 2 * 60 * 1000;
+const WALK_STRETCH_BUFFER_MS = isDemo ? 15 * 1000 : 30 * 60 * 1000;
 const PET_SIZE = 132;
 const PET_MARGIN = 24;
 const PET_VISIBLE = {
@@ -54,16 +56,16 @@ function createInitialState() {
     petBounds: null,
     settings: { ...DEFAULT_SETTINGS },
     reminders: {
-      light: { nextAt: now, lastAt: null, done: 0, ignored: 0, snoozed: 0 },
-      big: { nextAt: now, lastAt: null, done: 0, ignored: 0, snoozed: 0 },
-      walk: { nextAt: now, lastAt: null, done: 0, ignored: 0, snoozed: 0 },
+      stretch: { nextAt: null, lastAt: null, done: 0, ignored: 0, snoozed: 0 },
+      walk: { nextAt: null, lastAt: null, done: 0, ignored: 0, snoozed: 0 },
     },
     daily: dailySnapshot(new Date()),
     calendar: {},
   };
 
-  initial.reminders.light.nextAt = now + intervalMs('light', initial.settings);
-  initial.reminders.big.nextAt = now + intervalMs('big', initial.settings);
+  initial.reminders.stretch.nextAt = nextStretchAt(new Date(now), initial.settings, {
+    delayMinutes: initial.settings.stretchIntervalMinutes,
+  });
   initial.reminders.walk.nextAt = nextWalkAt(new Date(now), initial.settings);
   return initial;
 }
@@ -71,11 +73,14 @@ function createInitialState() {
 function dailySnapshot(date) {
   return {
     dateKey: toDateKey(date),
+    stretchDone: 0,
     walkDone: 0,
-    walkIgnored: 0,
+    ignored: {
+      stretch: 0,
+      walk: 0,
+    },
     completed: {
-      light: false,
-      big: false,
+      stretch: false,
       walk: false,
     },
   };
@@ -88,10 +93,14 @@ function toDateKey(date) {
   return `${year}-${month}-${day}`;
 }
 
-function intervalMs(reminderId, settings = state.settings) {
-  const minutes =
-    reminderId === 'light' ? settings.lightIntervalMinutes : settings.bigIntervalMinutes;
-  return Math.max(0.1, Number(minutes)) * 60 * 1000;
+function clampNumber(value, min, max, fallback) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
+
+function addMinutes(date, minutes) {
+  return new Date(date.getTime() + minutes * 60 * 1000);
 }
 
 function parseTimeForDate(time, date) {
@@ -101,47 +110,37 @@ function parseTimeForDate(time, date) {
   return next;
 }
 
-function nextWalkAt(fromDate, settings = state.settings) {
-  const times = normalizedWalkTimes(settings.walkTimes);
-
-  for (const time of times) {
-    const candidate = parseTimeForDate(time, fromDate);
-    if (candidate.getTime() > fromDate.getTime()) {
-      return candidate.getTime();
-    }
-  }
-
-  const tomorrow = new Date(fromDate);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return parseTimeForDate(times[0], tomorrow).getTime();
+function isValidTime(time) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(time).trim());
 }
 
-function normalizedWalkTimes(times) {
+function normalizeWalkTimes(times, count = DEFAULT_SETTINGS.walkCount) {
+  const wanted = Math.round(clampNumber(count, 1, 6, DEFAULT_SETTINGS.walkCount));
+  const fallback = ['10:30', '11:30', '15:30', '17:30', '19:30', '21:00'];
   const validTimes = (Array.isArray(times) ? times : [])
     .map((time) => String(time).trim())
-    .filter((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time))
-    .slice(0, 2);
+    .filter(isValidTime)
+    .slice(0, wanted);
 
-  while (validTimes.length < 2) {
-    validTimes.push(DEFAULT_SETTINGS.walkTimes[validTimes.length]);
+  while (validTimes.length < wanted) {
+    validTimes.push(fallback[validTimes.length]);
   }
 
   return validTimes.sort();
 }
 
 function normalizeSettings(settings) {
+  const walkCount = Math.round(clampNumber(settings.walkCount, 1, 6, DEFAULT_SETTINGS.walkCount));
   return {
-    lightIntervalMinutes: clampNumber(settings.lightIntervalMinutes, 1, 240, 30),
-    bigIntervalMinutes: clampNumber(settings.bigIntervalMinutes, 1, 480, 60),
+    stretchIntervalMinutes: clampNumber(settings.stretchIntervalMinutes, isDemo ? 0.1 : 5, 240, 45),
     snoozeMinutes: clampNumber(settings.snoozeMinutes, 1, 60, 10),
-    walkTimes: normalizedWalkTimes(settings.walkTimes),
+    walkCount,
+    walkTimes: normalizeWalkTimes(settings.walkTimes, walkCount),
+    lunchEnabled: settings.lunchEnabled !== false,
+    lunchStart: isValidTime(settings.lunchStart) ? settings.lunchStart : DEFAULT_SETTINGS.lunchStart,
+    lunchEnd: isValidTime(settings.lunchEnd) ? settings.lunchEnd : DEFAULT_SETTINGS.lunchEnd,
+    calendarEnabled: settings.calendarEnabled === true,
   };
-}
-
-function clampNumber(value, min, max, fallback) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return fallback;
-  return Math.min(max, Math.max(min, number));
 }
 
 function loadState() {
@@ -153,32 +152,83 @@ function loadState() {
     state = createInitialState();
   }
   resetDailyIfNeeded();
+  // Never restore stale reminder timestamps on app launch. Boot starts a fresh countdown.
+  rescheduleFrom(new Date(), { resetStretchCountdown: true });
   saveState();
 }
 
 function mergeState(base, loaded) {
-  const settings = normalizeSettings({ ...base.settings, ...(loaded.settings || {}) });
-  const daily = {
-    ...base.daily,
-    ...(loaded.daily || {}),
-    completed: {
-      ...base.daily.completed,
-      ...(loaded.daily?.completed || {}),
-    },
-  };
+  const migratedSettings = migrateSettings(loaded.settings || {});
+  const settings = normalizeSettings({ ...base.settings, ...migratedSettings });
+  const daily = mergeDaily(base.daily, loaded.daily || {});
+  const reminders = mergeReminders(base.reminders, loaded.reminders || {});
 
   return {
     ...base,
     ...loaded,
     settings,
-    reminders: {
-      light: { ...base.reminders.light, ...(loaded.reminders?.light || {}) },
-      big: { ...base.reminders.big, ...(loaded.reminders?.big || {}) },
-      walk: { ...base.reminders.walk, ...(loaded.reminders?.walk || {}) },
-    },
+    reminders,
     daily,
-    calendar: { ...base.calendar, ...(loaded.calendar || {}) },
+    calendar: normalizeCalendar({ ...base.calendar, ...(loaded.calendar || {}) }),
   };
+}
+
+function migrateSettings(settings) {
+  return {
+    ...settings,
+    stretchIntervalMinutes:
+      settings.stretchIntervalMinutes ?? settings.lightIntervalMinutes ?? DEFAULT_SETTINGS.stretchIntervalMinutes,
+    walkCount: settings.walkCount ?? (Array.isArray(settings.walkTimes) ? settings.walkTimes.length : undefined),
+  };
+}
+
+function mergeDaily(baseDaily, loadedDaily) {
+  return {
+    ...baseDaily,
+    ...loadedDaily,
+    stretchDone: loadedDaily.stretchDone ?? loadedDaily.lightDone ?? 0,
+    walkDone: loadedDaily.walkDone ?? 0,
+    ignored: {
+      ...baseDaily.ignored,
+      ...(loadedDaily.ignored || {}),
+      stretch: loadedDaily.ignored?.stretch ?? loadedDaily.lightIgnored ?? 0,
+      walk: loadedDaily.ignored?.walk ?? loadedDaily.walkIgnored ?? 0,
+    },
+    completed: {
+      ...baseDaily.completed,
+      stretch: Boolean(loadedDaily.completed?.stretch ?? loadedDaily.completed?.light ?? loadedDaily.completed?.big),
+      walk: Boolean(loadedDaily.completed?.walk),
+    },
+  };
+}
+
+function mergeReminders(baseReminders, loadedReminders) {
+  return {
+    stretch: {
+      ...baseReminders.stretch,
+      ...(loadedReminders.stretch || loadedReminders.light || {}),
+      nextAt: baseReminders.stretch.nextAt,
+    },
+    walk: {
+      ...baseReminders.walk,
+      ...(loadedReminders.walk || {}),
+      nextAt: baseReminders.walk.nextAt,
+    },
+  };
+}
+
+function normalizeCalendar(calendar) {
+  const normalized = {};
+  for (const [dateKey, rawDay] of Object.entries(calendar || {})) {
+    const stretch = Boolean(rawDay.stretch ?? rawDay.light ?? rawDay.big);
+    const walk = Boolean(rawDay.walk);
+    normalized[dateKey] = {
+      stretch,
+      walk,
+      lit: stretch && walk,
+    };
+  }
+  return normalized;
 }
 
 function saveState() {
@@ -191,7 +241,6 @@ function resetDailyIfNeeded() {
   const dateKey = toDateKey(now);
   if (!state.daily || state.daily.dateKey !== dateKey) {
     state.daily = dailySnapshot(now);
-    state.reminders.walk.nextAt = nextWalkAt(now);
   }
   ensureCalendarDay(dateKey);
 }
@@ -202,8 +251,7 @@ function ensureCalendarDay(dateKey = toDateKey(new Date())) {
   }
   if (!state.calendar[dateKey]) {
     state.calendar[dateKey] = {
-      light: false,
-      big: false,
+      stretch: false,
       walk: false,
       lit: false,
     };
@@ -214,13 +262,114 @@ function ensureCalendarDay(dateKey = toDateKey(new Date())) {
 function markCalendarProgress(reminderId) {
   const dateKey = toDateKey(new Date());
   const day = ensureCalendarDay(dateKey);
-  day[reminderId] = true;
-  day.lit = Boolean(day.light && day.big && day.walk);
-
-  if (!state.daily.completed) {
-    state.daily.completed = { light: false, big: false, walk: false };
+  if (reminderId === 'stretch' || reminderId === 'walk') {
+    day[reminderId] = true;
   }
+  day.lit = Boolean(day.stretch && day.walk);
   state.daily.completed[reminderId] = true;
+}
+
+function lunchIntervalsForDate(date, settings = state.settings) {
+  if (!settings.lunchEnabled) return [];
+  const start = parseTimeForDate(settings.lunchStart, date);
+  const end = parseTimeForDate(settings.lunchEnd, date);
+  if (end <= start) {
+    end.setDate(end.getDate() + 1);
+  }
+  return [{ start, end, type: 'lunch' }];
+}
+
+function walkBufferIntervalsForDate(date, settings = state.settings) {
+  return normalizeWalkTimes(settings.walkTimes, settings.walkCount).map((time) => {
+    const walkAt = parseTimeForDate(time, date);
+    return {
+      start: new Date(walkAt.getTime() - WALK_STRETCH_BUFFER_MS),
+      end: new Date(walkAt.getTime() + WALK_STRETCH_BUFFER_MS),
+      type: 'walk-buffer',
+    };
+  });
+}
+
+function blockedIntervalsAround(date, settings = state.settings) {
+  const dates = [];
+  for (const offset of [-1, 0, 1]) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + offset);
+    dates.push(next);
+  }
+
+  return dates
+    .flatMap((item) => [
+      ...lunchIntervalsForDate(item, settings),
+      ...walkBufferIntervalsForDate(item, settings),
+    ])
+    .sort((a, b) => a.start - b.start);
+}
+
+function isDuringLunch(date, settings = state.settings) {
+  return blockedIntervalsAround(date, settings).some((block) => {
+    return block.type === 'lunch' && date >= block.start && date < block.end;
+  });
+}
+
+function adjustOutOfBlockedWindow(candidate, settings = state.settings) {
+  let adjusted = new Date(candidate);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const block = blockedIntervalsAround(adjusted, settings).find(
+      (item) => adjusted >= item.start && adjusted < item.end,
+    );
+    if (!block) return adjusted.getTime();
+    adjusted = new Date(block.end.getTime() + 1000);
+  }
+  return adjusted.getTime();
+}
+
+function adjustOutOfLunch(candidate, settings = state.settings) {
+  let adjusted = new Date(candidate);
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const lunch = blockedIntervalsAround(adjusted, settings).find(
+      (item) => item.type === 'lunch' && adjusted >= item.start && adjusted < item.end,
+    );
+    if (!lunch) return adjusted.getTime();
+    adjusted = new Date(lunch.end.getTime() + 1000);
+  }
+  return adjusted.getTime();
+}
+
+function nextStretchAt(fromDate, settings = state.settings, options = {}) {
+  const delayMinutes =
+    options.delayMinutes ?? settings.stretchIntervalMinutes;
+  const candidate = addMinutes(fromDate, delayMinutes);
+  return adjustOutOfBlockedWindow(candidate, settings);
+}
+
+function nextWalkAt(fromDate, settings = state.settings) {
+  const times = normalizeWalkTimes(settings.walkTimes, settings.walkCount);
+
+  for (let dayOffset = 0; dayOffset < 8; dayOffset += 1) {
+    const date = new Date(fromDate);
+    date.setDate(date.getDate() + dayOffset);
+
+    for (const time of times) {
+      const candidate = parseTimeForDate(time, date);
+      if (candidate <= fromDate) continue;
+      if (isDuringLunch(candidate, settings)) continue;
+      return candidate.getTime();
+    }
+  }
+
+  const fallback = addMinutes(fromDate, 24 * 60);
+  return fallback.getTime();
+}
+
+function rescheduleFrom(fromDate, options = {}) {
+  const stretchDelay = options.resetStretchCountdown
+    ? state.settings.stretchIntervalMinutes
+    : options.stretchDelayMinutes;
+  state.reminders.stretch.nextAt = nextStretchAt(fromDate, state.settings, {
+    delayMinutes: stretchDelay,
+  });
+  state.reminders.walk.nextAt = nextWalkAt(fromDate, state.settings);
 }
 
 function createPetWindow() {
@@ -266,7 +415,14 @@ function persistPetBounds() {
 
 function createStatusWindow() {
   if (statusWindow) {
+    if (statusWindow.isMinimized()) {
+      statusWindow.restore();
+    }
+    if (!statusWindow.isVisible()) {
+      statusWindow.show();
+    }
     statusWindow.focus();
+    statusWindow.moveTop();
     pushState();
     return;
   }
@@ -290,6 +446,12 @@ function createStatusWindow() {
   statusWindow.on('closed', () => {
     statusWindow = null;
   });
+}
+
+function quitApp() {
+  clearInterval(tickTimer);
+  saveState();
+  app.exit(0);
 }
 
 function createOverlayWindow(reminderId) {
@@ -337,14 +499,6 @@ function createOverlayWindow(reminderId) {
 function triggerReminder(reminderId) {
   const entry = state.reminders[reminderId];
   entry.lastAt = Date.now();
-  if (reminderId === 'light') {
-    entry.nextAt = Date.now() + intervalMs('light');
-  } else if (reminderId === 'big') {
-    entry.nextAt = Date.now() + intervalMs('big');
-  } else if (reminderId === 'walk') {
-    entry.nextAt = nextWalkAt(new Date(Date.now() + 1000));
-  }
-
   saveState();
   createOverlayWindow(reminderId);
   if (petWindow) {
@@ -359,6 +513,10 @@ function completeReminder(reminderId) {
   markCalendarProgress(reminderId);
   if (reminderId === 'walk') {
     state.daily.walkDone += 1;
+    state.reminders.walk.nextAt = nextWalkAt(new Date(), state.settings);
+  } else {
+    state.daily.stretchDone += 1;
+    state.reminders.stretch.nextAt = nextStretchAt(new Date(), state.settings);
   }
   saveState();
   closeOverlay();
@@ -368,7 +526,16 @@ function completeReminder(reminderId) {
 function snoozeReminder(reminderId) {
   const entry = state.reminders[reminderId];
   entry.snoozed += 1;
-  entry.nextAt = Date.now() + state.settings.snoozeMinutes * 60 * 1000;
+  if (reminderId === 'walk') {
+    state.reminders.walk.nextAt = adjustOutOfLunch(
+      addMinutes(new Date(), state.settings.snoozeMinutes),
+      state.settings,
+    );
+  } else {
+    state.reminders.stretch.nextAt = nextStretchAt(new Date(), state.settings, {
+      delayMinutes: state.settings.snoozeMinutes,
+    });
+  }
   saveState();
   closeOverlay();
   pushState();
@@ -377,8 +544,14 @@ function snoozeReminder(reminderId) {
 function ignoreReminder(reminderId) {
   const entry = state.reminders[reminderId];
   entry.ignored += 1;
+  if (!state.daily.ignored) {
+    state.daily.ignored = { stretch: 0, walk: 0 };
+  }
+  state.daily.ignored[reminderId] += 1;
   if (reminderId === 'walk') {
-    state.daily.walkIgnored += 1;
+    state.reminders.walk.nextAt = nextWalkAt(new Date(), state.settings);
+  } else {
+    state.reminders.stretch.nextAt = nextStretchAt(new Date(), state.settings);
   }
   saveState();
   closeOverlay();
@@ -399,11 +572,22 @@ function startScheduler() {
   tickTimer = setInterval(() => {
     resetDailyIfNeeded();
     const now = Date.now();
-    for (const reminderId of ['light', 'big', 'walk']) {
-      if (state.reminders[reminderId].nextAt <= now && !overlayWindow) {
-        triggerReminder(reminderId);
-        break;
+    for (const reminderId of ['walk', 'stretch']) {
+      const nextAt = state.reminders[reminderId].nextAt;
+      if (!nextAt || overlayWindow || nextAt > now) continue;
+
+      if (now - nextAt > STALE_DUE_MS) {
+        if (reminderId === 'walk') {
+          state.reminders.walk.nextAt = nextWalkAt(new Date(now), state.settings);
+        } else {
+          state.reminders.stretch.nextAt = nextStretchAt(new Date(now), state.settings);
+        }
+        saveState();
+        continue;
       }
+
+      triggerReminder(reminderId);
+      break;
     }
     pushState();
   }, TICK_MS);
@@ -411,10 +595,7 @@ function startScheduler() {
 
 function updateSettings(settings) {
   state.settings = normalizeSettings({ ...state.settings, ...settings });
-  const now = Date.now();
-  state.reminders.light.nextAt = now + intervalMs('light');
-  state.reminders.big.nextAt = now + intervalMs('big');
-  state.reminders.walk.nextAt = nextWalkAt(new Date(now));
+  rescheduleFrom(new Date(), { resetStretchCountdown: true });
   saveState();
   pushState();
 }
@@ -445,13 +626,16 @@ function movePetBy(deltaX, deltaY) {
   });
 }
 
+function calendarForPublicState() {
+  return normalizeCalendar(state.calendar);
+}
+
 function publicState() {
   return {
     isDemo,
     now: Date.now(),
     reminders: {
-      light: { ...state.reminders.light, label: REMINDER_META.light.label },
-      big: { ...state.reminders.big, label: REMINDER_META.big.label },
+      stretch: { ...state.reminders.stretch, label: REMINDER_META.stretch.label },
       walk: {
         ...state.reminders.walk,
         label: REMINDER_META.walk.label,
@@ -460,7 +644,7 @@ function publicState() {
     },
     settings: { ...state.settings },
     daily: state.daily,
-    calendar: state.calendar,
+    calendar: calendarForPublicState(),
   };
 }
 
@@ -475,6 +659,7 @@ function pushState() {
 
 ipcMain.handle('state:get', () => publicState());
 ipcMain.on('pet:open-status', createStatusWindow);
+ipcMain.on('app:quit', quitApp);
 ipcMain.on('pet:drag-move', (_event, deltaX, deltaY) => movePetBy(deltaX, deltaY));
 ipcMain.on('reminder:done', (_event, reminderId) => completeReminder(reminderId));
 ipcMain.on('reminder:snooze', (_event, reminderId) => snoozeReminder(reminderId));
@@ -501,6 +686,9 @@ app.whenReady().then(() => {
   }
   loadState();
   createPetWindow();
+  if (shouldOpenWindowOnStart) {
+    createStatusWindow();
+  }
   startScheduler();
 });
 

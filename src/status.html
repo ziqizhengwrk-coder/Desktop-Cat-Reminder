@@ -18,7 +18,7 @@
 
       <nav class="tabs" aria-label="Status pages">
         <button class="tab active" type="button" data-tab="overview">Overview</button>
-        <button class="tab" type="button" data-tab="calendar">Calendar</button>
+        <button id="calendarTab" class="tab hidden" type="button" data-tab="calendar">Calendar</button>
         <button class="tab" type="button" data-tab="settings">Settings</button>
       </nav>
 
@@ -26,40 +26,18 @@
         <section class="timeline" aria-label="Next reminders">
           <article>
             <div>
-              <h2>Light activity</h2>
-              <p>Stand, neck and shoulder movement, water break</p>
+              <h2>Stretch break</h2>
+              <p>Near-desk stretch, neck and shoulder movement</p>
             </div>
-            <strong id="lightNext">--:--</strong>
+            <strong id="stretchNext">--:--</strong>
           </article>
           <article>
             <div>
-              <h2>Big activity</h2>
-              <p>Walk around, stretch, leave the screen</p>
-            </div>
-            <strong id="bigNext">--:--</strong>
-          </article>
-          <article>
-            <div>
-              <h2>Daily walks</h2>
-              <p id="walkTimes">11:30 / 17:30</p>
+              <h2>Outdoor walk</h2>
+              <p>Scheduled at <span id="walkTimes">11:30 / 17:30</span></p>
             </div>
             <strong id="walkNext">--:--</strong>
           </article>
-        </section>
-
-        <section class="stats" aria-label="Today status">
-          <div>
-            <span id="walkDone">0/2</span>
-            <p>Walks today</p>
-          </div>
-          <div>
-            <span id="doneCount">0</span>
-            <p>Done</p>
-          </div>
-          <div>
-            <span id="ignoredCount">0</span>
-            <p>Ignored</p>
-          </div>
         </section>
 
         <footer>
@@ -72,7 +50,7 @@
         <section class="calendar" aria-label="Completion calendar">
           <div class="section-title">
             <h2 id="calendarTitle">Calendar</h2>
-            <span id="todayProgress">0/3</span>
+            <span id="todayProgress">0/2</span>
           </div>
           <div class="weekdays" aria-hidden="true">
             <span>Mon</span>
@@ -95,14 +73,8 @@
           </div>
 
           <label>
-            <span>Light activity interval</span>
-            <input id="lightInterval" type="number" min="1" max="240" step="1" />
-            <small>minutes</small>
-          </label>
-
-          <label>
-            <span>Big activity interval</span>
-            <input id="bigInterval" type="number" min="1" max="480" step="1" />
+            <span>Stretch interval</span>
+            <input id="stretchInterval" type="number" min="5" max="240" step="1" />
             <small>minutes</small>
           </label>
 
@@ -112,16 +84,36 @@
             <small>minutes</small>
           </label>
 
+          <label>
+            <span>Outdoor walk count</span>
+            <input id="walkCount" type="number" min="1" max="6" step="1" />
+            <small>times/day</small>
+          </label>
+
+          <div id="walkTimeFields" class="time-grid"></div>
+
+          <label class="toggle-row">
+            <span>Lunch quiet time</span>
+            <input id="lunchEnabled" type="checkbox" />
+            <small>enabled</small>
+          </label>
+
           <div class="time-grid">
             <label>
-              <span>Walk time 1</span>
-              <input id="walkTime1" type="time" />
+              <span>Lunch start</span>
+              <input id="lunchStart" type="time" />
             </label>
             <label>
-              <span>Walk time 2</span>
-              <input id="walkTime2" type="time" />
+              <span>Lunch end</span>
+              <input id="lunchEnd" type="time" />
             </label>
           </div>
+
+          <label class="toggle-row">
+            <span>Calendar tab</span>
+            <input id="calendarEnabled" type="checkbox" />
+            <small>enabled</small>
+          </label>
 
           <button type="submit">Save settings</button>
         </form>

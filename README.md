@@ -1,21 +1,22 @@
 # Desktop Cat Reminder
 
-A lightweight Electron desktop pet that nudges you to break long sitting sessions.
+A lightweight Electron desktop pet that nudges you to move at a calmer rhythm.
 
 ## Features
 
 - Always-on-top pixel orange cat desktop pet.
-- The cat can be dragged, double-clicked, and will idle, walk, loaf, and roll on its own.
-- Configurable light activity interval.
-- Configurable big activity interval.
-- Configurable snooze interval.
-- Two configurable daily walk reminder times.
+- Double-click the cat to open or restore the status window.
+- Right-click the cat and choose Quit to exit the app.
+- Two activity types: near-desk stretch breaks and outdoor walks.
+- User-configurable outdoor walk count and exact walk times.
+- Stretch reminders are scheduled around walk times and avoid the 30 minutes before/after each walk.
+- Optional lunch quiet time, during which no activity reminders are shown.
+- Optional Calendar tab, disabled by default.
+- Boot starts a fresh countdown instead of immediately showing stale reminders.
 - Fullscreen always-on-top reminder overlay with Done and later actions.
-- Status window with next reminders, daily walk completion, done count, ignored count, and settings.
+- Calendar tracking: a day lights up after at least one stretch and one walk are completed.
 
 ## Run On Windows
-
-If `pnpm` is not available in your terminal, use the bundled project scripts:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -28,30 +29,18 @@ Demo mode:
 powershell -ExecutionPolicy Bypass -File .\start.ps1 --demo
 ```
 
-If your system already has pnpm:
+## Build Installer
 
 ```powershell
-pnpm install
-pnpm start
-pnpm demo
+powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
-## Change Reminder Settings
-
-Double-click the desktop cat to open the status window. In the Settings section you can change:
-
-- Light activity interval, in minutes
-- Big activity interval, in minutes
-- Snooze time, in minutes
-- Walk time 1
-- Walk time 2
-
-Saving settings immediately recalculates the next reminder times.
+The installer is generated in `dist`.
 
 ## Files
 
-- `main.js`: Electron main process, timers, settings, persistence, window management.
+- `main.js`: Electron main process, scheduling engine, settings, persistence, window management.
 - `preload.js`: IPC bridge.
-- `src/pet.*`: Pixel desktop cat and autonomous behavior.
+- `src/pet.*`: Desktop cat.
 - `src/overlay.*`: Fullscreen reminder overlay.
-- `src/status.*`: Status and settings window.
+- `src/status.*`: Status, calendar, and settings window.

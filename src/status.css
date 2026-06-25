@@ -71,12 +71,16 @@ h2 {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 8px;
   padding: 4px;
   border: 1px solid #e0cfb7;
   border-radius: 8px;
   background: #fffaf1;
+}
+
+.hidden {
+  display: none !important;
 }
 
 .tab {
@@ -208,6 +212,12 @@ small {
 }
 
 .calendar-day.lit {
+  border-color: #eadcc9;
+  background: #fffdf8;
+  box-shadow: none;
+}
+
+.calendar-day.today {
   color: #ffffff;
   border-color: #1c6c5b;
   background: #1c6c5b;
@@ -233,8 +243,12 @@ small {
   background: #e8892d;
 }
 
-.calendar-day.lit .dots i {
-  background: rgba(255, 255, 255, 0.74);
+.calendar-day.today .dots i {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.calendar-day.today .dots i.done {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 label {
@@ -242,6 +256,12 @@ label {
   grid-template-columns: minmax(0, 1fr) 96px 58px;
   gap: 10px;
   align-items: center;
+}
+
+.toggle-row input {
+  width: 22px;
+  height: 22px;
+  justify-self: center;
 }
 
 .time-grid {

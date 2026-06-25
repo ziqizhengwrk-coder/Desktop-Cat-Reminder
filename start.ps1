@@ -24,6 +24,10 @@ $electronExe = Join-Path $PSScriptRoot "node_modules\electron\dist\electron.exe"
 if (!(Test-Path $electronExe)) {
   Write-Host "Electron is not installed yet. Running install first..."
   & (Join-Path $PSScriptRoot "install.ps1")
+  if ($LASTEXITCODE -ne 0) { throw "install failed with exit code $LASTEXITCODE" }
+}
+if (!(Test-Path $electronExe)) {
+  throw "Electron executable is still missing after install: $electronExe"
 }
 
 $pnpm = Get-ProjectPnpm
@@ -32,7 +36,7 @@ try {
   if ($args.Count -gt 0) {
     & $pnpm exec electron . @args
   } else {
-    & $pnpm start
+    & $pnpm exec electron . --open-window
   }
 } finally {
   Pop-Location

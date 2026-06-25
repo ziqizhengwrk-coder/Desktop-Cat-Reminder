@@ -3,5 +3,12 @@ setlocal
 
 cd /d "%~dp0"
 
-start "" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0start.ps1"
-exit /b 0
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1" --open-window
+
+if errorlevel 1 (
+  echo.
+  echo Desktop Cat Reminder failed to start.
+  echo Please keep this window open and share the error message.
+  echo.
+  pause
+)

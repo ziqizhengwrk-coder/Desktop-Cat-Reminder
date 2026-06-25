@@ -1,20 +1,20 @@
-const lightNext = document.getElementById('lightNext');
-const bigNext = document.getElementById('bigNext');
+const stretchNext = document.getElementById('stretchNext');
 const walkNext = document.getElementById('walkNext');
 const walkTimes = document.getElementById('walkTimes');
-const walkDone = document.getElementById('walkDone');
-const doneCount = document.getElementById('doneCount');
-const ignoredCount = document.getElementById('ignoredCount');
 const updated = document.getElementById('updated');
 const mode = document.getElementById('mode');
 const resetPosition = document.getElementById('resetPosition');
 const settingsForm = document.getElementById('settingsForm');
 const saveStatus = document.getElementById('saveStatus');
-const lightInterval = document.getElementById('lightInterval');
-const bigInterval = document.getElementById('bigInterval');
+const stretchInterval = document.getElementById('stretchInterval');
 const snoozeMinutes = document.getElementById('snoozeMinutes');
-const walkTime1 = document.getElementById('walkTime1');
-const walkTime2 = document.getElementById('walkTime2');
+const walkCount = document.getElementById('walkCount');
+const walkTimeFields = document.getElementById('walkTimeFields');
+const lunchEnabled = document.getElementById('lunchEnabled');
+const lunchStart = document.getElementById('lunchStart');
+const lunchEnd = document.getElementById('lunchEnd');
+const calendarEnabled = document.getElementById('calendarEnabled');
+const calendarTab = document.getElementById('calendarTab');
 const calendarTitle = document.getElementById('calendarTitle');
 const calendarGrid = document.getElementById('calendarGrid');
 const todayProgress = document.getElementById('todayProgress');
@@ -26,8 +26,10 @@ const tabPages = {
 };
 
 let isHydrating = false;
+let hasUnsavedSettings = false;
 
 function formatRemaining(nextAt, now) {
+  if (!nextAt) return '--:--';
   const totalSeconds = Math.max(0, Math.ceil((nextAt - now) / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -40,6 +42,7 @@ function formatRemaining(nextAt, now) {
 }
 
 function formatClock(value) {
+  if (!value) return '--:--';
   return new Date(value).toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit',
@@ -62,7 +65,7 @@ function monthTitle(date) {
 
 function completionCount(day) {
   if (!day) return 0;
-  return ['light', 'big', 'walk'].filter((key) => day[key]).length;
+  return ['stretch', 'walk'].filter((key) => day[key]).length;
 }
 
 function renderCalendar(state) {
@@ -74,7 +77,7 @@ function renderCalendar(state) {
 
   calendarTitle.textContent = monthTitle(today);
   const todayKey = toDateKey(today);
-  todayProgress.textContent = `${completionCount(state.calendar?.[todayKey])}/3`;
+  todayProgress.textContent = `${completionCount(state.calendar?.[todayKey])}/2`;
   calendarGrid.textContent = '';
 
   for (let index = 0; index < 42; index += 1) {
@@ -84,7 +87,7 @@ function renderCalendar(state) {
     const day = state.calendar?.[dateKey] || null;
     const isCurrentMonth = date.getMonth() === today.getMonth();
     const isToday = dateKey === todayKey;
-    const isLit = Boolean(day?.lit);
+    const isLit = Boolean(day?.stretch && day?.walk);
 
     const cell = document.createElement('div');
     cell.className = [
@@ -103,7 +106,7 @@ function renderCalendar(state) {
 
     const dots = document.createElement('span');
     dots.className = 'dots';
-    for (const key of ['light', 'big', 'walk']) {
+    for (const key of ['stretch', 'walk']) {
       const dot = document.createElement('i');
       if (day?.[key]) {
         dot.className = 'done';
@@ -121,45 +124,74 @@ function setInputValue(input, value) {
   }
 }
 
+function ensureWalkTimeInputs(count, values = []) {
+  const currentInputs = walkTimeFields.querySelectorAll('input[type="time"]');
+  if (currentInputs.length === count) return;
+
+  walkTimeFields.textContent = '';
+  for (let index = 0; index < count; index += 1) {
+    const label = document.createElement('label');
+    const text = document.createElement('span');
+    const input = document.createElement('input');
+
+    text.textContent = `Walk time ${index + 1}`;
+    input.type = 'time';
+    input.value = values[index] || '';
+    input.dataset.walkTime = String(index);
+
+    label.append(text, input);
+    walkTimeFields.append(label);
+  }
+}
+
 function render(state) {
   const now = Date.now();
-  lightNext.textContent = formatRemaining(state.reminders.light.nextAt, now);
-  bigNext.textContent = formatRemaining(state.reminders.big.nextAt, now);
-  walkNext.textContent = formatClock(state.reminders.walk.nextAt);
+  stretchNext.textContent = formatRemaining(state.reminders.stretch.nextAt, now);
+  walkNext.textContent = formatRemaining(state.reminders.walk.nextAt, now);
   walkTimes.textContent = state.reminders.walk.configuredTimes.join(' / ');
-
-  const totalDone =
-    state.reminders.light.done + state.reminders.big.done + state.reminders.walk.done;
-  const totalIgnored =
-    state.reminders.light.ignored + state.reminders.big.ignored + state.reminders.walk.ignored;
-
-  walkDone.textContent = `${Math.min(state.daily.walkDone, 2)}/2`;
-  doneCount.textContent = String(totalDone);
-  ignoredCount.textContent = String(totalIgnored);
   updated.textContent = `Last updated ${formatClock(now)}`;
   mode.textContent = state.isDemo ? 'Demo' : 'Running';
+  calendarTab.classList.toggle('hidden', !state.settings.calendarEnabled);
+  if (!state.settings.calendarEnabled && tabPages.calendar.classList.contains('active')) {
+    setActiveTab('overview');
+  }
   renderCalendar(state);
 
-  isHydrating = true;
-  setInputValue(lightInterval, state.settings.lightIntervalMinutes);
-  setInputValue(bigInterval, state.settings.bigIntervalMinutes);
-  setInputValue(snoozeMinutes, state.settings.snoozeMinutes);
-  setInputValue(walkTime1, state.settings.walkTimes[0]);
-  setInputValue(walkTime2, state.settings.walkTimes[1]);
-  isHydrating = false;
+  if (!hasUnsavedSettings) {
+    isHydrating = true;
+    setInputValue(stretchInterval, state.settings.stretchIntervalMinutes);
+    setInputValue(snoozeMinutes, state.settings.snoozeMinutes);
+    setInputValue(walkCount, state.settings.walkCount);
+    ensureWalkTimeInputs(state.settings.walkCount, state.settings.walkTimes);
+    for (const input of walkTimeFields.querySelectorAll('input[type="time"]')) {
+      setInputValue(input, state.settings.walkTimes[Number(input.dataset.walkTime)] || '');
+    }
+    lunchEnabled.checked = Boolean(state.settings.lunchEnabled);
+    calendarEnabled.checked = Boolean(state.settings.calendarEnabled);
+    setInputValue(lunchStart, state.settings.lunchStart);
+    setInputValue(lunchEnd, state.settings.lunchEnd);
+    isHydrating = false;
+  }
 }
 
 function collectSettings() {
+  const count = Number(walkCount.value);
+  const walkInputs = [...walkTimeFields.querySelectorAll('input[type="time"]')];
   return {
-    lightIntervalMinutes: Number(lightInterval.value),
-    bigIntervalMinutes: Number(bigInterval.value),
+    stretchIntervalMinutes: Number(stretchInterval.value),
     snoozeMinutes: Number(snoozeMinutes.value),
-    walkTimes: [walkTime1.value, walkTime2.value],
+    walkCount: count,
+    walkTimes: walkInputs.map((input) => input.value),
+    lunchEnabled: lunchEnabled.checked,
+    lunchStart: lunchStart.value,
+    lunchEnd: lunchEnd.value,
+    calendarEnabled: calendarEnabled.checked,
   };
 }
 
 function markDirty() {
   if (!isHydrating) {
+    hasUnsavedSettings = true;
     saveStatus.textContent = 'Unsaved';
   }
 }
@@ -167,10 +199,23 @@ function markDirty() {
 window.catReminder.getState().then(render);
 window.catReminder.onState(render);
 
-settingsForm.addEventListener('input', markDirty);
+function handleSettingsEdit(event) {
+  if (event.target === walkCount) {
+    const nextCount = Math.max(1, Math.min(6, Number(walkCount.value) || 1));
+    const values = [...walkTimeFields.querySelectorAll('input[type="time"]')].map(
+      (input) => input.value,
+    );
+    ensureWalkTimeInputs(nextCount, values);
+  }
+  markDirty();
+}
+
+settingsForm.addEventListener('input', handleSettingsEdit);
+settingsForm.addEventListener('change', handleSettingsEdit);
 
 settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
+  hasUnsavedSettings = false;
   window.catReminder.updateSettings(collectSettings());
   saveStatus.textContent = 'Saved';
 });
@@ -179,14 +224,17 @@ resetPosition.addEventListener('click', () => {
   window.catReminder.resetPetPosition();
 });
 
+function setActiveTab(tabName) {
+  for (const item of tabButtons) {
+    item.classList.toggle('active', item.dataset.tab === tabName);
+  }
+  for (const [name, page] of Object.entries(tabPages)) {
+    page.classList.toggle('active', name === tabName);
+  }
+}
+
 for (const button of tabButtons) {
   button.addEventListener('click', () => {
-    const tabName = button.dataset.tab;
-    for (const item of tabButtons) {
-      item.classList.toggle('active', item === button);
-    }
-    for (const [name, page] of Object.entries(tabPages)) {
-      page.classList.toggle('active', name === tabName);
-    }
+    setActiveTab(button.dataset.tab);
   });
 }

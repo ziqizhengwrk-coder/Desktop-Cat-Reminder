@@ -1,5 +1,5 @@
 const params = new URLSearchParams(window.location.search);
-const reminderId = params.get('reminderId') || 'light';
+const reminderId = params.get('reminderId') || 'stretch';
 const label = document.getElementById('label');
 const title = document.getElementById('title');
 const message = document.getElementById('message');
@@ -8,8 +8,7 @@ const snooze = document.getElementById('snooze');
 const close = document.getElementById('close');
 
 const titles = {
-  light: 'Time to move',
-  big: 'Step away',
+  stretch: 'Stretch break',
   walk: 'Walk outside',
 };
 
