@@ -15,8 +15,8 @@ body {
 .cat {
   position: relative;
   display: grid;
-  width: 132px;
-  height: 132px;
+  width: 172px;
+  height: 172px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -36,10 +36,10 @@ body {
 .pixel-cat {
   position: absolute;
   left: 24px;
-  top: 20px;
+  top: 38px;
   display: block;
-  width: 84px;
-  height: 84px;
+  width: 120px;
+  height: 120px;
   object-fit: contain;
   image-rendering: pixelated;
   transform-origin: 50% 86%;
@@ -58,8 +58,8 @@ body {
 
 .pet-menu {
   position: absolute;
-  left: 56px;
-  top: 76px;
+  left: 88px;
+  top: 128px;
   z-index: 3;
   padding: 4px;
   border: 1px solid rgba(42, 33, 27, 0.22);
@@ -82,6 +82,18 @@ body {
 .pet-menu button:hover {
   color: #ffffff;
   background: #1c6c5b;
+}
+
+.heart-pop {
+  position: absolute;
+  left: 82px;
+  top: 46px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  animation: heart-pop 980ms ease-out forwards;
 }
 
 .hidden {
@@ -114,5 +126,26 @@ body {
   100% {
     opacity: 0;
     transform: scale(1.5);
+  }
+}
+
+@keyframes heart-pop {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.65);
+  }
+  14% {
+    opacity: 1;
+  }
+  35% {
+    transform: translate(8px, -8px) scale(1);
+  }
+  68% {
+    opacity: 0.9;
+    transform: translate(-6px, -20px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(10px, -32px) scale(0.76);
   }
 }

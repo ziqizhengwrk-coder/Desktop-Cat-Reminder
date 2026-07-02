@@ -91,6 +91,7 @@ cat.addEventListener('click', () => {
   if (Date.now() <= suppressClickUntil) return;
   clearTimeout(clickTimer);
   clickTimer = window.setTimeout(() => {
+    spawnHeart();
     cat.animate(
       [
         { transform: 'translateY(0)' },
@@ -101,6 +102,17 @@ cat.addEventListener('click', () => {
     );
   }, 180);
 });
+
+function spawnHeart() {
+  const heart = document.createElement('img');
+  heart.className = 'heart-pop';
+  heart.src = './assets/heart.gif';
+  heart.alt = '';
+  heart.draggable = false;
+  heart.setAttribute('aria-hidden', 'true');
+  heart.addEventListener('animationend', () => heart.remove(), { once: true });
+  document.body.append(heart);
+}
 
 cat.addEventListener('contextmenu', (event) => {
   event.preventDefault();

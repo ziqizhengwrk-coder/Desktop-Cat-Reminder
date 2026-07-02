@@ -56,13 +56,13 @@ const DEFAULT_SETTINGS = {
 const TICK_MS = 1000;
 const STALE_DUE_MS = isDemo ? 20 * 1000 : 2 * 60 * 1000;
 const WALK_STRETCH_BUFFER_MS = isDemo ? 15 * 1000 : 30 * 60 * 1000;
-const PET_SIZE = 132;
-const PET_MARGIN = 24;
+const PET_SIZE = 172;
+const PET_MARGIN = 0;
 const PET_VISIBLE = {
   left: 24,
-  top: 20,
-  right: 108,
-  bottom: 104,
+  top: 38,
+  right: 148,
+  bottom: 164,
 };
 const APP_ICON = path.join(__dirname, 'src', 'assets', 'cat-icon.ico');
 const UPDATE_RELEASES_API =

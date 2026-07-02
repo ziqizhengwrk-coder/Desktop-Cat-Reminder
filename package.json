@@ -1,6 +1,6 @@
 {
   "name": "desktop-cat-reminder",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A tiny desktop cat that nudges you to move before sitting too long.",
   "main": "main.js",
   "scripts": {

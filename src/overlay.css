@@ -38,9 +38,9 @@ body {
 .pixel-cat {
   position: relative;
   display: block;
-  width: 96px;
-  height: 96px;
-  margin: -106px auto 8px;
+  width: 140px;
+  height: 140px;
+  margin: -150px auto 8px;
   image-rendering: pixelated;
   transform-origin: 50% 84%;
   filter: drop-shadow(0 9px 0 rgba(38, 29, 22, 0.12));
