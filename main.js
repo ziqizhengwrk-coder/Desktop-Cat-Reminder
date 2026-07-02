@@ -76,6 +76,7 @@ let overlayWindow;
 let tickTimer;
 let storePath;
 let state;
+let petMouseIgnored = false;
 
 function createInitialState() {
   const now = Date.now();
@@ -407,14 +408,24 @@ function isDuringLunch(date, settings = state.settings) {
   });
 }
 
-function adjustOutOfBlockedWindow(candidate, settings = state.settings) {
+function lunchBlockAt(date, settings = state.settings) {
+  return blockedIntervalsAround(date, settings).find((block) => {
+    return block.type === 'lunch' && date >= block.start && date < block.end;
+  });
+}
+
+function adjustOutOfBlockedWindow(candidate, settings = state.settings, options = {}) {
   let adjusted = new Date(candidate);
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const block = blockedIntervalsAround(adjusted, settings).find(
       (item) => adjusted >= item.start && adjusted < item.end,
     );
     if (!block) return adjusted.getTime();
-    adjusted = new Date(block.end.getTime() + 1000);
+    if (block.type === 'lunch' && Number.isFinite(options.restartAfterLunchMinutes)) {
+      adjusted = addMinutes(block.end, options.restartAfterLunchMinutes);
+    } else {
+      adjusted = new Date(block.end.getTime() + 1000);
+    }
   }
   return adjusted.getTime();
 }
@@ -434,8 +445,12 @@ function adjustOutOfLunch(candidate, settings = state.settings) {
 function nextStretchAt(fromDate, settings = state.settings, options = {}) {
   const delayMinutes =
     options.delayMinutes ?? settings.stretchIntervalMinutes;
-  const candidate = addMinutes(fromDate, delayMinutes);
-  return adjustOutOfBlockedWindow(candidate, settings);
+  const activeLunch = lunchBlockAt(fromDate, settings);
+  const baseDate = activeLunch ? activeLunch.end : fromDate;
+  const candidate = addMinutes(baseDate, delayMinutes);
+  return adjustOutOfBlockedWindow(candidate, settings, {
+    restartAfterLunchMinutes: delayMinutes,
+  });
 }
 
 function nextWalkAt(fromDate, settings = state.settings) {
@@ -493,13 +508,24 @@ function createPetWindow() {
       nodeIntegration: false,
     },
   });
+  petMouseIgnored = false;
 
   petWindow.setAlwaysOnTop(true, 'floating');
   petWindow.loadFile(path.join(__dirname, 'src', 'pet.html'));
+  petWindow.webContents.once('did-finish-load', () => {
+    setPetMouseIgnored(true);
+  });
   petWindow.on('moved', persistPetBounds);
   petWindow.on('closed', () => {
     petWindow = null;
+    petMouseIgnored = false;
   });
+}
+
+function setPetMouseIgnored(ignored) {
+  if (!petWindow || petWindow.isDestroyed() || petMouseIgnored === ignored) return;
+  petMouseIgnored = ignored;
+  petWindow.setIgnoreMouseEvents(ignored, { forward: true });
 }
 
 function persistPetBounds() {
@@ -767,6 +793,7 @@ ipcMain.on('external:open', (_event, url) => {
   }
 });
 ipcMain.on('pet:drag-move', (_event, deltaX, deltaY) => movePetBy(deltaX, deltaY));
+ipcMain.on('pet:mouse-ignore', (_event, ignored) => setPetMouseIgnored(Boolean(ignored)));
 ipcMain.on('reminder:done', (_event, reminderId) => completeReminder(reminderId));
 ipcMain.on('reminder:snooze', (_event, reminderId) => snoozeReminder(reminderId));
 ipcMain.on('reminder:ignore', (_event, reminderId) => ignoreReminder(reminderId));

@@ -6,7 +6,10 @@ const message = document.getElementById('message');
 const done = document.getElementById('done');
 const snooze = document.getElementById('snooze');
 const close = document.getElementById('close');
-const DONE_LOCK_SECONDS = 60;
+const DONE_LOCK_SECONDS = {
+  stretch: 60,
+  walk: 180,
+};
 
 const overlayText = {
   'zh-CN': {
@@ -24,7 +27,7 @@ const overlayText = {
 };
 
 let language = 'zh-CN';
-let doneUnlockAt = Date.now() + DONE_LOCK_SECONDS * 1000;
+let doneUnlockAt = Date.now() + doneLockSeconds() * 1000;
 let doneTimer = null;
 
 function text(language, key, values = {}) {
@@ -68,9 +71,13 @@ window.addEventListener('beforeunload', () => {
 function startDoneCountdown() {
   clearInterval(doneTimer);
   done.disabled = true;
-  doneUnlockAt = Date.now() + DONE_LOCK_SECONDS * 1000;
+  doneUnlockAt = Date.now() + doneLockSeconds() * 1000;
   updateDoneCountdown();
   doneTimer = window.setInterval(updateDoneCountdown, 1000);
+}
+
+function doneLockSeconds() {
+  return DONE_LOCK_SECONDS[reminderId] || DONE_LOCK_SECONDS.stretch;
 }
 
 function updateDoneCountdown() {

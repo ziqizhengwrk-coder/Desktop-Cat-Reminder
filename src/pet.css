@@ -58,8 +58,8 @@ body {
 
 .pet-menu {
   position: absolute;
-  right: 10px;
-  bottom: 10px;
+  left: 56px;
+  top: 76px;
   z-index: 3;
   padding: 4px;
   border: 1px solid rgba(42, 33, 27, 0.22);

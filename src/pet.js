@@ -1,11 +1,14 @@
 const cat = document.getElementById('cat');
 const petMenu = document.getElementById('petMenu');
 const quitApp = document.getElementById('quitApp');
+const pixelCat = document.querySelector('.pixel-cat');
 
 let clickTimer = null;
 let drag = null;
 let suppressClickUntil = 0;
 let suppressMenuUntil = 0;
+let mouseIgnored = null;
+let lastPointer = { x: 0, y: 0 };
 
 const petText = {
   'zh-CN': {
@@ -30,6 +33,51 @@ function isPetMenuOpen() {
 
 function hidePetMenu() {
   petMenu.classList.add('hidden');
+  updateMousePassthrough();
+}
+
+function showPetMenu() {
+  petMenu.style.left = '';
+  petMenu.style.top = '';
+  petMenu.style.right = '';
+  petMenu.style.bottom = '';
+  petMenu.classList.remove('hidden');
+  setMouseIgnored(false);
+}
+
+function rectContainsPoint(rect, x, y, padding = 0) {
+  return (
+    x >= rect.left - padding &&
+    x <= rect.right + padding &&
+    y >= rect.top - padding &&
+    y <= rect.bottom + padding
+  );
+}
+
+function isInteractivePoint(x, y) {
+  if (drag) return true;
+  if (isPetMenuOpen() && rectContainsPoint(petMenu.getBoundingClientRect(), x, y, 4)) {
+    return true;
+  }
+  return rectContainsPoint(pixelCat.getBoundingClientRect(), x, y, 6);
+}
+
+function setMouseIgnored(ignored) {
+  if (mouseIgnored === ignored) return;
+  mouseIgnored = ignored;
+  window.catReminder.setPetMouseIgnore(ignored);
+}
+
+function updateMousePassthrough(event) {
+  if (event) {
+    lastPointer = { x: event.clientX, y: event.clientY };
+  }
+
+  const interactive = isInteractivePoint(lastPointer.x, lastPointer.y);
+  if (isPetMenuOpen() && !interactive) {
+    petMenu.classList.add('hidden');
+  }
+  setMouseIgnored(!interactive);
 }
 
 cat.addEventListener('dblclick', () => {
@@ -60,7 +108,7 @@ cat.addEventListener('contextmenu', (event) => {
   if (isPetMenuOpen()) {
     hidePetMenu();
   } else {
-    petMenu.classList.remove('hidden');
+    showPetMenu();
   }
 });
 
@@ -102,6 +150,7 @@ document.addEventListener('pointerdown', (event) => {
 });
 
 cat.addEventListener('pointerdown', (event) => {
+  setMouseIgnored(false);
   cat.setPointerCapture(event.pointerId);
   drag = {
     lastX: event.screenX,
@@ -111,6 +160,7 @@ cat.addEventListener('pointerdown', (event) => {
 });
 
 cat.addEventListener('pointermove', (event) => {
+  lastPointer = { x: event.clientX, y: event.clientY };
   if (!drag) return;
   const deltaX = event.screenX - drag.lastX;
   const deltaY = event.screenY - drag.lastY;
@@ -128,11 +178,21 @@ cat.addEventListener('pointerup', () => {
   }
   window.setTimeout(() => {
     drag = null;
+    updateMousePassthrough();
   }, 0);
 });
 
 cat.addEventListener('pointercancel', () => {
   drag = null;
+  updateMousePassthrough();
+});
+
+document.addEventListener('mousemove', updateMousePassthrough);
+
+document.addEventListener('mouseleave', () => {
+  if (!drag) {
+    setMouseIgnored(true);
+  }
 });
 
 window.catReminder.onPetAlert(() => {

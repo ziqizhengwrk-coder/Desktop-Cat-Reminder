@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('catReminder', {
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
   openExternal: (url) => ipcRenderer.send('external:open', url),
   dragPet: (deltaX, deltaY) => ipcRenderer.send('pet:drag-move', deltaX, deltaY),
+  setPetMouseIgnore: (ignored) => ipcRenderer.send('pet:mouse-ignore', ignored),
   updateSettings: (settings) => ipcRenderer.send('settings:update', settings),
   done: (reminderId) => ipcRenderer.send('reminder:done', reminderId),
   snooze: (reminderId) => ipcRenderer.send('reminder:snooze', reminderId),
