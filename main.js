@@ -66,6 +66,7 @@ const PET_VISIBLE = {
   bottom: 164,
 };
 const APP_ICON = path.join(__dirname, 'src', 'assets', 'cat-icon.ico');
+const LOGIN_ITEM_NAME = 'Desktop Cat Reminder';
 const UPDATE_RELEASES_API =
   'https://api.github.com/repos/ziqizhengwrk-coder/Desktop-Cat-Reminder/releases/latest';
 const UPDATE_RELEASES_PAGE =
@@ -287,8 +288,8 @@ function loginItemOptions() {
   if (process.platform !== 'win32') return {};
   return {
     path: process.execPath,
-    // Windows login items need an absolute, quoted project path in development.
-    args: app.isPackaged ? ['--autostart'] : [`"${app.getAppPath()}"`, '--autostart'],
+    // Electron 42 quotes command-line arguments when writing the login item.
+    args: app.isPackaged ? ['--autostart'] : [app.getAppPath(), '--autostart'],
   };
 }
 
@@ -296,8 +297,22 @@ function getAutoStart() {
   const supported = process.platform === 'win32' || (process.platform === 'darwin' && app.isPackaged);
   if (!supported) return { supported: false, enabled: false, error: 'startup.unsupported' };
   try {
-    const login = app.getLoginItemSettings(loginItemOptions());
-    const enabled = login.openAtLogin && (process.platform !== 'win32' || login.executableWillLaunchAtLogin);
+    const options = loginItemOptions();
+    // On Windows the lookup parses path as a command line, including spaces.
+    const login = app.getLoginItemSettings(process.platform === 'win32'
+      ? { ...options, path: `"${options.path}"` }
+      : options);
+    // launchItems.args contains positional arguments only, excluding -- switches.
+    const positionalArgs = (options.args || []).filter(arg => arg !== '--autostart');
+    // openAtLogin reads the AppUserModelId entry, not our custom entry name.
+    const enabled = process.platform === 'win32'
+      ? (login.launchItems || []).some(item =>
+        item.name === LOGIN_ITEM_NAME &&
+        item.scope === 'user' &&
+        item.enabled &&
+        item.args.length === positionalArgs.length &&
+        item.args.every((arg, index) => arg === positionalArgs[index]))
+      : login.openAtLogin;
     return {
       supported: true,
       enabled: Boolean(enabled),
@@ -314,7 +329,7 @@ function setAutoStart(enabled) {
   try {
     app.setLoginItemSettings({
       ...loginItemOptions(),
-      ...(process.platform === 'win32' ? { name: 'Desktop Cat Reminder', enabled } : {}),
+      ...(process.platform === 'win32' ? { name: LOGIN_ITEM_NAME, enabled } : {}),
       openAtLogin: enabled,
     });
     const result = getAutoStart();

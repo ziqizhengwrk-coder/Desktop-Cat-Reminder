@@ -48,7 +48,7 @@ const translations = {
     'overview.walkScheduled': '计划时间',
     'overview.resetCat': '重置小猫位置',
     'overview.updated': '最后更新 {time}',
-    'dnd.label': '免打扰模式',
+    'dnd.label': '手动免打扰',
     'dnd.paused': '提醒已暂停',
     'dnd.walkPaused': '已暂停',
     'dnd.error': '切换失败，请重试。',
@@ -66,8 +66,8 @@ const translations = {
     'settings.save': '保存设置',
     'settings.interval': '时间间隔',
     'settings.intervalDesc': '拉伸间隔、稍后提醒、走路次数和时间',
-    'settings.lunch': '午休',
-    'settings.lunchDesc': '设置不打扰的午休时间段',
+    'settings.dnd': '免打扰',
+    'settings.dndDesc': '手动免打扰、午休时间',
     'settings.calendar': '日历',
     'settings.calendarDesc': '控制是否显示日历页面',
     'settings.language': '语言',
@@ -106,7 +106,7 @@ const translations = {
     'overview.walkScheduled': 'Scheduled at',
     'overview.resetCat': 'Reset cat position',
     'overview.updated': 'Last updated {time}',
-    'dnd.label': 'Do not disturb',
+    'dnd.label': 'Pause reminders',
     'dnd.paused': 'Reminders paused',
     'dnd.walkPaused': 'Paused',
     'dnd.error': 'Could not switch modes. Please try again.',
@@ -124,8 +124,8 @@ const translations = {
     'settings.save': 'Save settings',
     'settings.interval': 'Interval',
     'settings.intervalDesc': 'Stretch interval, snooze time, walk count and times',
-    'settings.lunch': 'Lunch',
-    'settings.lunchDesc': 'Set a quiet lunch period',
+    'settings.dnd': 'Do not disturb',
+    'settings.dndDesc': 'Manual pause and lunch quiet hours',
     'settings.calendar': 'Calendar',
     'settings.calendarDesc': 'Control whether the calendar tab is shown',
     'settings.language': 'Language',
@@ -422,7 +422,7 @@ doNotDisturb.addEventListener('change', async () => {
 });
 
 function handleSettingsEdit(event) {
-  if (event.target === autoStart) return;
+  if (event.target === autoStart || event.target === doNotDisturb) return;
   if (event.target === walkCount) {
     const nextCount = Math.max(1, Math.min(6, Number(walkCount.value) || 1));
     const values = [...walkTimeFields.querySelectorAll('input[type="time"]')].map(

@@ -375,6 +375,8 @@ label {
 .dnd-controls {
   display: grid;
   gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eadcc9;
 }
 
 .dnd-row {

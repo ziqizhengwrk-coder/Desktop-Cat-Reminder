@@ -15,14 +15,6 @@
       </header>
 
       <section id="overviewPage" class="tab-page active">
-        <div class="dnd-controls">
-          <label class="toggle-row dnd-row">
-            <span data-i18n="dnd.label">免打扰模式</span>
-            <input id="doNotDisturb" type="checkbox" role="switch" disabled />
-          </label>
-          <small id="dndStatus" class="hidden" role="status" data-i18n="dnd.paused">提醒已暂停</small>
-          <small id="dndError" class="hidden" role="alert" data-i18n="dnd.error">切换失败，请重试。</small>
-        </div>
         <section class="timeline" aria-label="Next reminders">
           <article>
             <div>
@@ -81,10 +73,10 @@
                 </span>
                 <i aria-hidden="true">&rsaquo;</i>
               </button>
-              <button class="settings-menu-item" type="button" data-settings-target="lunch">
+              <button class="settings-menu-item" type="button" data-settings-target="dnd">
                 <span>
-                  <strong data-i18n="settings.lunch">午休</strong>
-                  <small data-i18n="settings.lunchDesc">设置不打扰的午休时间段</small>
+                  <strong data-i18n="settings.dnd">免打扰</strong>
+                  <small data-i18n="settings.dndDesc">手动免打扰、午休时间</small>
                 </span>
                 <i aria-hidden="true">&rsaquo;</i>
               </button>
@@ -138,10 +130,19 @@
             <button type="submit" data-i18n="settings.save">保存设置</button>
           </section>
 
-          <section id="settingsLunch" class="settings-view settings-subpage">
+          <section id="settingsDnd" class="settings-view settings-subpage">
             <div class="settings-subheader">
               <button class="back-button" type="button" data-settings-back aria-label="Back">&larr;</button>
-              <h2 data-i18n="settings.lunch">午休</h2>
+              <h2 data-i18n="settings.dnd">免打扰</h2>
+            </div>
+
+            <div class="dnd-controls">
+              <label class="toggle-row dnd-row">
+                <span data-i18n="dnd.label">手动免打扰</span>
+                <input id="doNotDisturb" type="checkbox" role="switch" disabled />
+              </label>
+              <small id="dndStatus" class="hidden" role="status" data-i18n="dnd.paused">提醒已暂停</small>
+              <small id="dndError" class="hidden" role="alert" data-i18n="dnd.error">切换失败，请重试。</small>
             </div>
 
             <label class="toggle-row">
