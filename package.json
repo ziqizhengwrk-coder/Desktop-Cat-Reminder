@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "demo": "electron . --demo",
+    "test": "node --test",
     "check": "node --check main.js && node --check preload.js && node --check src/pet.js && node --check src/overlay.js && node --check src/status.js",
     "dist": "electron-builder --win nsis"
   },

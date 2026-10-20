@@ -3,6 +3,9 @@ const walkNext = document.getElementById('walkNext');
 const walkTimes = document.getElementById('walkTimes');
 const updated = document.getElementById('updated');
 const resetPosition = document.getElementById('resetPosition');
+const doNotDisturb = document.getElementById('doNotDisturb');
+const dndStatus = document.getElementById('dndStatus');
+const dndError = document.getElementById('dndError');
 const settingsForm = document.getElementById('settingsForm');
 const saveStatus = document.getElementById('saveStatus');
 const stretchInterval = document.getElementById('stretchInterval');
@@ -22,6 +25,8 @@ const appVersion = document.getElementById('appVersion');
 const checkUpdates = document.getElementById('checkUpdates');
 const openUpdate = document.getElementById('openUpdate');
 const updateStatus = document.getElementById('updateStatus');
+const autoStart = document.getElementById('autoStart');
+const startupStatus = document.getElementById('startupStatus');
 const tabButtons = document.querySelectorAll('[data-tab]');
 const settingsMenuItems = document.querySelectorAll('[data-settings-target]');
 const settingsBackButtons = document.querySelectorAll('[data-settings-back]');
@@ -43,6 +48,10 @@ const translations = {
     'overview.walkScheduled': '计划时间',
     'overview.resetCat': '重置小猫位置',
     'overview.updated': '最后更新 {time}',
+    'dnd.label': '免打扰模式',
+    'dnd.paused': '提醒已暂停',
+    'dnd.walkPaused': '已暂停',
+    'dnd.error': '切换失败，请重试。',
     'calendar.title': '{year}年{month}月',
     'weekdays.mon': '一',
     'weekdays.tue': '二',
@@ -63,6 +72,11 @@ const translations = {
     'settings.calendarDesc': '控制是否显示日历页面',
     'settings.language': '语言',
     'settings.languageDesc': '切换中文或英文界面',
+    'startup.label': '开机自动启动',
+    'startup.unsupported': '当前运行方式不支持开机自动启动。',
+    'startup.approval': '请在系统设置的登录项中允许自动启动。',
+    'startup.readError': '无法读取开机启动状态，请重新打开设置重试。',
+    'startup.writeError': '未能更改开机启动设置，请重试。',
     'fields.stretchInterval': '拉伸间隔',
     'fields.snoozeTime': '稍后提醒',
     'fields.walkCount': '每日走路次数',
@@ -92,6 +106,10 @@ const translations = {
     'overview.walkScheduled': 'Scheduled at',
     'overview.resetCat': 'Reset cat position',
     'overview.updated': 'Last updated {time}',
+    'dnd.label': 'Do not disturb',
+    'dnd.paused': 'Reminders paused',
+    'dnd.walkPaused': 'Paused',
+    'dnd.error': 'Could not switch modes. Please try again.',
     'calendar.title': '{month} {year}',
     'weekdays.mon': 'Mon',
     'weekdays.tue': 'Tue',
@@ -112,6 +130,11 @@ const translations = {
     'settings.calendarDesc': 'Control whether the calendar tab is shown',
     'settings.language': 'Language',
     'settings.languageDesc': 'Switch between Chinese and English',
+    'startup.label': 'Launch at login',
+    'startup.unsupported': 'Launch at login is not supported in this environment.',
+    'startup.approval': 'Allow this app in System Settings > Login Items.',
+    'startup.readError': 'Could not read startup settings. Reopen Settings to retry.',
+    'startup.writeError': 'Could not change startup settings. Please try again.',
     'fields.stretchInterval': 'Stretch interval',
     'fields.snoozeTime': 'Snooze time',
     'fields.walkCount': 'Outdoor walk count',
@@ -138,6 +161,31 @@ let hasUnsavedSettings = false;
 let updateDownloadUrl = null;
 let currentLanguage = 'zh-CN';
 let updateStatusState = { key: 'updates.manual', values: {} };
+let startupState = { supported: true, enabled: false, error: null };
+let startupBusy = false;
+let dndBusy = false;
+let dndEnabled = false;
+
+function renderAutoStart() {
+  autoStart.checked = startupState.enabled;
+  autoStart.disabled = startupBusy || !startupState.supported || startupState.error === 'startup.readError';
+  startupStatus.textContent = startupState.error ? t(startupState.error) : '';
+  startupStatus.classList.toggle('hidden', !startupState.error);
+}
+
+async function refreshAutoStart() {
+  if (startupBusy) return;
+  startupBusy = true;
+  renderAutoStart();
+  try {
+    startupState = await window.catReminder.getAutoStart();
+  } catch {
+    startupState = { ...startupState, error: 'startup.readError' };
+  } finally {
+    startupBusy = false;
+    renderAutoStart();
+  }
+}
 
 function t(key, values = {}) {
   const template = translations[currentLanguage]?.[key] || translations.en[key] || key;
@@ -153,6 +201,7 @@ function applyTranslations() {
     button.setAttribute('aria-label', currentLanguage === 'zh-CN' ? '返回' : 'Back');
   }
   updateStatus.textContent = t(updateStatusState.key, updateStatusState.values);
+  renderAutoStart();
 }
 
 function formatRemaining(nextAt, now) {
@@ -286,8 +335,16 @@ function render(state) {
   applyTranslations();
 
   const now = Date.now();
-  stretchNext.textContent = formatRemaining(state.reminders.stretch.nextAt, now);
-  walkNext.textContent = formatRemaining(state.reminders.walk.nextAt, now);
+  dndEnabled = Boolean(state.doNotDisturb);
+  doNotDisturb.checked = dndEnabled;
+  doNotDisturb.disabled = dndBusy;
+  dndStatus.classList.toggle('hidden', !dndEnabled);
+  stretchNext.textContent = dndEnabled
+    ? formatRemaining(state.settings.stretchIntervalMinutes * 60 * 1000, 0)
+    : formatRemaining(state.reminders.stretch.nextAt, now);
+  walkNext.textContent = dndEnabled
+    ? t('dnd.walkPaused')
+    : formatRemaining(state.reminders.walk.nextAt, now);
   walkTimes.textContent = state.reminders.walk.configuredTimes.join(' / ');
   updated.textContent = t('overview.updated', { time: formatClock(now) });
   appVersion.textContent = `v${state.appVersion || '--'}`;
@@ -348,7 +405,24 @@ function showSettingsView(name) {
 window.catReminder.getState().then(render);
 window.catReminder.onState(render);
 
+doNotDisturb.addEventListener('change', async () => {
+  const enabled = doNotDisturb.checked;
+  dndBusy = true;
+  doNotDisturb.disabled = true;
+  dndError.classList.add('hidden');
+  try {
+    render(await window.catReminder.setDoNotDisturb(enabled));
+  } catch {
+    doNotDisturb.checked = dndEnabled;
+    dndError.classList.remove('hidden');
+  } finally {
+    dndBusy = false;
+    doNotDisturb.disabled = false;
+  }
+});
+
 function handleSettingsEdit(event) {
+  if (event.target === autoStart) return;
   if (event.target === walkCount) {
     const nextCount = Math.max(1, Math.min(6, Number(walkCount.value) || 1));
     const values = [...walkTimeFields.querySelectorAll('input[type="time"]')].map(
@@ -361,6 +435,25 @@ function handleSettingsEdit(event) {
 
 settingsForm.addEventListener('input', handleSettingsEdit);
 settingsForm.addEventListener('change', handleSettingsEdit);
+
+autoStart.addEventListener('change', async () => {
+  const enabled = autoStart.checked;
+  const previousState = startupState;
+  startupState = { ...startupState, enabled, error: null };
+  startupBusy = true;
+  renderAutoStart();
+  try {
+    startupState = await window.catReminder.setAutoStart(enabled);
+  } catch {
+    startupState = { ...previousState, error: 'startup.writeError' };
+  } finally {
+    startupBusy = false;
+    renderAutoStart();
+  }
+});
+
+window.addEventListener('focus', refreshAutoStart);
+refreshAutoStart();
 
 settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -419,6 +512,7 @@ openUpdate.addEventListener('click', () => {
 });
 
 function setActiveTab(tabName) {
+  if (tabName === 'settings') refreshAutoStart();
   for (const item of tabButtons) {
     item.classList.toggle('active', item.dataset.tab === tabName);
   }

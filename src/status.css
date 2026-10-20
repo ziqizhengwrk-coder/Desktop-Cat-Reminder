@@ -372,6 +372,33 @@ label {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.dnd-controls {
+  display: grid;
+  gap: 4px;
+}
+
+.dnd-row {
+  min-height: 32px;
+}
+
+.dnd-row span {
+  color: #221b15;
+  font-weight: 700;
+}
+
+#dndError {
+  color: #a43726;
+}
+
+.startup-row {
+  min-height: 32px;
+}
+
+.startup-status {
+  color: #a43726;
+  overflow-wrap: anywhere;
+}
+
 .wide-row {
   grid-template-columns: minmax(0, 1fr) minmax(150px, 220px);
 }

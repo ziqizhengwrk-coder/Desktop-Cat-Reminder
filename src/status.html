@@ -15,6 +15,14 @@
       </header>
 
       <section id="overviewPage" class="tab-page active">
+        <div class="dnd-controls">
+          <label class="toggle-row dnd-row">
+            <span data-i18n="dnd.label">免打扰模式</span>
+            <input id="doNotDisturb" type="checkbox" role="switch" disabled />
+          </label>
+          <small id="dndStatus" class="hidden" role="status" data-i18n="dnd.paused">提醒已暂停</small>
+          <small id="dndError" class="hidden" role="alert" data-i18n="dnd.error">切换失败，请重试。</small>
+        </div>
         <section class="timeline" aria-label="Next reminders">
           <article>
             <div>
@@ -95,6 +103,11 @@
                 <i aria-hidden="true">&rsaquo;</i>
               </button>
             </div>
+            <label class="toggle-row startup-row">
+              <span data-i18n="startup.label">开机自动启动</span>
+              <input id="autoStart" type="checkbox" role="switch" disabled aria-describedby="startupStatus" />
+            </label>
+            <small id="startupStatus" class="startup-status hidden" role="status"></small>
           </div>
 
           <section id="settingsInterval" class="settings-view settings-subpage">

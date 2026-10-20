@@ -2,9 +2,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('catReminder', {
   getState: () => ipcRenderer.invoke('state:get'),
+  setDoNotDisturb: (enabled) => ipcRenderer.invoke('dnd:set', enabled),
   openStatus: () => ipcRenderer.send('pet:open-status'),
   quitApp: () => ipcRenderer.send('app:quit'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  getAutoStart: () => ipcRenderer.invoke('startup:get'),
+  setAutoStart: (enabled) => ipcRenderer.invoke('startup:set', enabled),
   openExternal: (url) => ipcRenderer.send('external:open', url),
   dragPet: (deltaX, deltaY) => ipcRenderer.send('pet:drag-move', deltaX, deltaY),
   setPetMouseIgnore: (ignored) => ipcRenderer.send('pet:mouse-ignore', ignored),

@@ -55,6 +55,7 @@ const DEFAULT_SETTINGS = {
 
 const TICK_MS = 1000;
 const STALE_DUE_MS = isDemo ? 20 * 1000 : 2 * 60 * 1000;
+const UNHANDLED_REMINDER_TIMEOUT_MS = isDemo ? 30 * 1000 : 10 * 60 * 1000;
 const WALK_STRETCH_BUFFER_MS = isDemo ? 15 * 1000 : 30 * 60 * 1000;
 const PET_SIZE = 172;
 const PET_MARGIN = 0;
@@ -77,12 +78,15 @@ let tickTimer;
 let storePath;
 let state;
 let petMouseIgnored = false;
+let activeReminderId = null;
+let activeReminderStartedAt = null;
 
 function createInitialState() {
   const now = Date.now();
   const initial = {
     createdAt: now,
     petBounds: null,
+    doNotDisturb: false,
     settings: { ...DEFAULT_SETTINGS },
     reminders: {
       stretch: { nextAt: null, lastAt: null, done: 0, ignored: 0, snoozed: 0 },
@@ -201,6 +205,7 @@ function mergeState(base, loaded) {
   return {
     ...base,
     ...loaded,
+    doNotDisturb: loaded.doNotDisturb === true,
     settings,
     reminders,
     daily,
@@ -276,6 +281,48 @@ function parseVersion(version) {
     .replace(/^v/i, '')
     .split(/[.-]/)
     .map((part) => Number.parseInt(part, 10) || 0);
+}
+
+function loginItemOptions() {
+  if (process.platform !== 'win32') return {};
+  return {
+    path: process.execPath,
+    // Windows login items need an absolute, quoted project path in development.
+    args: app.isPackaged ? ['--autostart'] : [`"${app.getAppPath()}"`, '--autostart'],
+  };
+}
+
+function getAutoStart() {
+  const supported = process.platform === 'win32' || (process.platform === 'darwin' && app.isPackaged);
+  if (!supported) return { supported: false, enabled: false, error: 'startup.unsupported' };
+  try {
+    const login = app.getLoginItemSettings(loginItemOptions());
+    const enabled = login.openAtLogin && (process.platform !== 'win32' || login.executableWillLaunchAtLogin);
+    return {
+      supported: true,
+      enabled: Boolean(enabled),
+      error: login.status === 'requires-approval' ? 'startup.approval' : null,
+    };
+  } catch {
+    return { supported: true, enabled: false, error: 'startup.readError' };
+  }
+}
+
+function setAutoStart(enabled) {
+  const current = getAutoStart();
+  if (!current.supported || typeof enabled !== 'boolean') return current;
+  try {
+    app.setLoginItemSettings({
+      ...loginItemOptions(),
+      ...(process.platform === 'win32' ? { name: 'Desktop Cat Reminder', enabled } : {}),
+      openAtLogin: enabled,
+    });
+    const result = getAutoStart();
+    if (!result.error && result.enabled !== enabled) result.error = 'startup.writeError';
+    return result;
+  } catch {
+    return { ...getAutoStart(), error: 'startup.writeError' };
+  }
 }
 
 function compareVersions(left, right) {
@@ -473,6 +520,11 @@ function nextWalkAt(fromDate, settings = state.settings) {
 }
 
 function rescheduleFrom(fromDate, options = {}) {
+  if (state.doNotDisturb) {
+    state.reminders.stretch.nextAt = null;
+    state.reminders.walk.nextAt = null;
+    return;
+  }
   const stretchDelay = options.resetStretchCountdown
     ? state.settings.stretchIntervalMinutes
     : options.stretchDelayMinutes;
@@ -480,6 +532,55 @@ function rescheduleFrom(fromDate, options = {}) {
     delayMinutes: stretchDelay,
   });
   state.reminders.walk.nextAt = nextWalkAt(fromDate, state.settings);
+}
+
+function setDoNotDisturb(enabled) {
+  if (typeof enabled !== 'boolean') throw new TypeError('Expected a boolean');
+  if (state.doNotDisturb === enabled) return publicState();
+  state.doNotDisturb = enabled;
+  if (enabled) closeOverlay();
+  rescheduleFrom(new Date(), { resetStretchCountdown: true });
+  saveState();
+  pushState();
+  return publicState();
+}
+
+function rescheduleReminderFrom(reminderId, fromDate) {
+  if (reminderId === 'walk') {
+    state.reminders.walk.nextAt = nextWalkAt(fromDate, state.settings);
+  } else if (reminderId === 'stretch') {
+    state.reminders.stretch.nextAt = nextStretchAt(fromDate, state.settings);
+  }
+}
+
+function rescheduleDueRemindersFrom(fromDate) {
+  const now = fromDate.getTime();
+  for (const reminderId of ['walk', 'stretch']) {
+    const nextAt = state.reminders[reminderId].nextAt;
+    if (nextAt && nextAt <= now) {
+      rescheduleReminderFrom(reminderId, fromDate);
+    }
+  }
+}
+
+function recoverUnattendedReminder(now) {
+  if (!overlayWindow) {
+    if (activeReminderId) {
+      clearActiveReminder();
+    }
+    return false;
+  }
+  if (!activeReminderStartedAt) {
+    activeReminderStartedAt = now;
+    return false;
+  }
+  if (now - activeReminderStartedAt <= UNHANDLED_REMINDER_TIMEOUT_MS) return false;
+
+  rescheduleDueRemindersFrom(new Date(now));
+  closeOverlay();
+  saveState();
+  pushState();
+  return true;
 }
 
 function createPetWindow() {
@@ -582,7 +683,7 @@ function createOverlayWindow(reminderId) {
 
   const reminder = REMINDER_META[reminderId];
   const copy = reminderCopy(reminderId);
-  overlayWindow = new BrowserWindow({
+  const currentOverlayWindow = new BrowserWindow({
     fullscreen: true,
     icon: APP_ICON,
     frame: false,
@@ -597,16 +698,18 @@ function createOverlayWindow(reminderId) {
       nodeIntegration: false,
     },
   });
+  overlayWindow = currentOverlayWindow;
 
-  overlayWindow.setAlwaysOnTop(true, 'screen-saver');
-  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  overlayWindow.loadFile(path.join(__dirname, 'src', 'overlay.html'), {
+  currentOverlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  currentOverlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  currentOverlayWindow.loadFile(path.join(__dirname, 'src', 'overlay.html'), {
     query: { reminderId },
   });
-  overlayWindow.once('ready-to-show', () => {
-    overlayWindow.show();
-    overlayWindow.focus();
-    overlayWindow.webContents.send('reminder:data', {
+  currentOverlayWindow.once('ready-to-show', () => {
+    if (state.doNotDisturb || currentOverlayWindow.isDestroyed() || overlayWindow !== currentOverlayWindow) return;
+    currentOverlayWindow.show();
+    currentOverlayWindow.focus();
+    currentOverlayWindow.webContents.send('reminder:data', {
       id: reminder.id,
       language: state.settings.language,
       label: copy.label,
@@ -615,14 +718,20 @@ function createOverlayWindow(reminderId) {
       snoozeMinutes: state.settings.snoozeMinutes,
     });
   });
-  overlayWindow.on('closed', () => {
-    overlayWindow = null;
+  currentOverlayWindow.on('closed', () => {
+    if (overlayWindow === currentOverlayWindow) {
+      overlayWindow = null;
+      clearActiveReminder();
+    }
   });
 }
 
 function triggerReminder(reminderId) {
+  if (state.doNotDisturb) return;
   const entry = state.reminders[reminderId];
   entry.lastAt = Date.now();
+  activeReminderId = reminderId;
+  activeReminderStartedAt = entry.lastAt;
   saveState();
   createOverlayWindow(reminderId);
   if (petWindow) {
@@ -632,6 +741,7 @@ function triggerReminder(reminderId) {
 }
 
 function completeReminder(reminderId) {
+  if (state.doNotDisturb || activeReminderId !== reminderId) return;
   const entry = state.reminders[reminderId];
   entry.done += 1;
   markCalendarProgress(reminderId);
@@ -648,6 +758,7 @@ function completeReminder(reminderId) {
 }
 
 function snoozeReminder(reminderId) {
+  if (state.doNotDisturb || activeReminderId !== reminderId) return;
   const entry = state.reminders[reminderId];
   entry.snoozed += 1;
   if (reminderId === 'walk') {
@@ -666,6 +777,7 @@ function snoozeReminder(reminderId) {
 }
 
 function ignoreReminder(reminderId) {
+  if (state.doNotDisturb || activeReminderId !== reminderId) return;
   const entry = state.reminders[reminderId];
   entry.ignored += 1;
   if (!state.daily.ignored) {
@@ -686,7 +798,13 @@ function closeOverlay() {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.close();
   }
-  if (petWindow) {
+  clearActiveReminder();
+}
+
+function clearActiveReminder() {
+  activeReminderId = null;
+  activeReminderStartedAt = null;
+  if (petWindow && !petWindow.isDestroyed()) {
     petWindow.webContents.send('pet:calm');
   }
 }
@@ -695,7 +813,12 @@ function startScheduler() {
   clearInterval(tickTimer);
   tickTimer = setInterval(() => {
     resetDailyIfNeeded();
+    if (state.doNotDisturb) {
+      pushState();
+      return;
+    }
     const now = Date.now();
+    if (recoverUnattendedReminder(now)) return;
     for (const reminderId of ['walk', 'stretch']) {
       const nextAt = state.reminders[reminderId].nextAt;
       if (!nextAt || overlayWindow || nextAt > now) continue;
@@ -758,6 +881,7 @@ function publicState() {
   const language = state.settings.language;
   return {
     isDemo,
+    doNotDisturb: state.doNotDisturb,
     appVersion: app.getVersion(),
     now: Date.now(),
     reminders: {
@@ -784,7 +908,10 @@ function pushState() {
 }
 
 ipcMain.handle('state:get', () => publicState());
+ipcMain.handle('dnd:set', (_event, enabled) => setDoNotDisturb(enabled));
 ipcMain.handle('update:check', () => checkForUpdates());
+ipcMain.handle('startup:get', () => getAutoStart());
+ipcMain.handle('startup:set', (_event, enabled) => setAutoStart(enabled));
 ipcMain.on('pet:open-status', createStatusWindow);
 ipcMain.on('app:quit', quitApp);
 ipcMain.on('external:open', (_event, url) => {
@@ -813,30 +940,46 @@ ipcMain.on('status:reset-position', () => {
   }
 });
 
-app.whenReady().then(() => {
-  if (process.platform === 'win32') {
-    app.setAppUserModelId('com.desktop-cat-reminder.app');
-  }
-  Menu.setApplicationMenu(null);
-  loadState();
-  createPetWindow();
-  if (shouldOpenWindowOnStart) {
-    createStatusWindow();
-  }
-  startScheduler();
-});
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  let openStatusOnReady = shouldOpenWindowOnStart;
+  let startupComplete = false;
 
-app.on('activate', () => {
-  if (!petWindow) {
+  app.on('second-instance', () => {
+    // A second launch can arrive before state and windows are initialized.
+    openStatusOnReady = true;
+    if (startupComplete) {
+      createStatusWindow();
+    }
+  });
+
+  app.whenReady().then(() => {
+    if (process.platform === 'win32') {
+      app.setAppUserModelId('com.desktop-cat-reminder.app');
+    }
+    Menu.setApplicationMenu(null);
+    loadState();
     createPetWindow();
-  }
-});
+    if (openStatusOnReady) {
+      createStatusWindow();
+    }
+    startScheduler();
+    startupComplete = true;
+  });
 
-app.on('window-all-closed', (event) => {
-  event.preventDefault();
-});
+  app.on('activate', () => {
+    if (!petWindow) {
+      createPetWindow();
+    }
+  });
 
-app.on('before-quit', () => {
-  clearInterval(tickTimer);
-  saveState();
-});
+  app.on('window-all-closed', (event) => {
+    event.preventDefault();
+  });
+
+  app.on('before-quit', () => {
+    clearInterval(tickTimer);
+    if (state) saveState();
+  });
+}
